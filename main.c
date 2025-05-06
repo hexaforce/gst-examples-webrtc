@@ -53,8 +53,8 @@ static SoupWebsocketConnection *ws_conn = NULL;
 static enum AppState app_state = 0;
 static gchar *peer_id = NULL;
 static gchar *our_id = NULL;
-static const gchar *server_url = "wss://192.168.151.5:8443/signaling";
-static gboolean disable_ssl = FALSE;
+static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
+static gboolean disable_ssl = TRUE;
 static gboolean remote_is_offerer = FALSE;
 static gboolean custom_ice = FALSE;
 
@@ -63,9 +63,9 @@ static GOptionEntry entries[] = {
   //     "String ID of the peer to connect to", "ID"},
   // {"our-id", 0, 0, G_OPTION_ARG_STRING, &our_id,
   //     "String ID that the peer can use to connect to us", "ID"},
-  {"server", 0, 0, G_OPTION_ARG_STRING, &server_url,
-      "Signalling server to connect to", "URL"},
-  {"disable-ssl", 0, 0, G_OPTION_ARG_NONE, &disable_ssl, "Disable ssl", NULL},
+  // {"server", 0, 0, G_OPTION_ARG_STRING, &server_url,
+  //     "Signalling server to connect to", "URL"},
+  // {"disable-ssl", 0, 0, G_OPTION_ARG_NONE, &disable_ssl, "Disable ssl", NULL},
   {"remote-offerer", 0, 0, G_OPTION_ARG_NONE, &remote_is_offerer,
       "Request that the peer generate the offer and we'll answer", NULL},
   {"custom-ice", 0, 0, G_OPTION_ARG_NONE, &custom_ice,
@@ -1071,13 +1071,13 @@ gst_main (int argc, char *argv[])
 
   /* Disable ssl when running a localhost server, because
    * it's probably a test server with a self-signed certificate */
-  {
-    GstUri *uri = gst_uri_from_string (server_url);
-    if (g_strcmp0 ("localhost", gst_uri_get_host (uri)) == 0 ||
-        g_strcmp0 ("127.0.0.1", gst_uri_get_host (uri)) == 0)
-      disable_ssl = TRUE;
-    gst_uri_unref (uri);
-  }
+  // {
+  //   GstUri *uri = gst_uri_from_string (server_url);
+  //   if (g_strcmp0 ("localhost", gst_uri_get_host (uri)) == 0 ||
+  //       g_strcmp0 ("127.0.0.1", gst_uri_get_host (uri)) == 0)
+  //     disable_ssl = TRUE;
+  //   gst_uri_unref (uri);
+  // }
 
   loop = g_main_loop_new (NULL, FALSE);
 
