@@ -643,31 +643,31 @@ err:
 static gboolean
 register_with_server (void)
 {
-  gchar *hello;
+  // gchar *hello;
 
   if (soup_websocket_connection_get_state (ws_conn) !=
       SOUP_WEBSOCKET_STATE_OPEN)
     return FALSE;
 
-  if (!our_id) {
-    gint32 id;
+  // if (!our_id) {
+  //   gint32 id;
 
-    id = g_random_int_range (10, 10000);
-    gst_print ("Registering id %i with server\n", id);
+  //   id = g_random_int_range (10, 10000);
+  //   gst_print ("Registering id %i with server\n", id);
 
-    hello = g_strdup_printf ("HELLO %i", id);
-  } else {
-    gst_print ("Registering id %s with server\n", our_id);
+  //   hello = g_strdup_printf ("HELLO %i", id);
+  // } else {
+  //   gst_print ("Registering id %s with server\n", our_id);
 
-    hello = g_strdup_printf ("HELLO %s", our_id);
-  }
+  //   hello = g_strdup_printf ("HELLO %s", our_id);
+  // }
 
   app_state = SERVER_REGISTERING;
 
   /* Register with the server with a random integer id. Reply will be received
    * by on_server_message() */
-  soup_websocket_connection_send_text (ws_conn, hello);
-  g_free (hello);
+  // soup_websocket_connection_send_text (ws_conn, hello);
+  // g_free (hello);
 
   return TRUE;
 }
@@ -796,153 +796,155 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       g_assert_not_reached ();
   }
 
-  if (g_strcmp0 (text, "HELLO") == 0) {
-    /* Server has accepted our registration, we are ready to send commands */
-    if (app_state != SERVER_REGISTERING) {
-      cleanup_and_quit_loop ("ERROR: Received HELLO when not registering",
-          APP_STATE_ERROR);
-      goto out;
-    }
-    app_state = SERVER_REGISTERED;
-    gst_print ("Registered with server\n");
-    if (!our_id) {
-      /* Ask signalling server to connect us with a specific peer */
-      // if (!setup_call ()) {
-      //   cleanup_and_quit_loop ("ERROR: Failed to setup call", PEER_CALL_ERROR);
-      //   goto out;
-      // }
-    } else {
-      gst_println ("Waiting for connection from peer (our-id: %s)", our_id);
-    }
-  } else if (g_strcmp0 (text, "SESSION_OK") == 0) {
-    /* The call initiated by us has been setup by the server; now we can start
-     * negotiation */
-    if (app_state != PEER_CONNECTING) {
-      cleanup_and_quit_loop ("ERROR: Received SESSION_OK when not calling",
-          PEER_CONNECTION_ERROR);
-      goto out;
-    }
+  // if (g_strcmp0 (text, "HELLO") == 0) {
+  //   /* Server has accepted our registration, we are ready to send commands */
+  //   if (app_state != SERVER_REGISTERING) {
+  //     cleanup_and_quit_loop ("ERROR: Received HELLO when not registering",
+  //         APP_STATE_ERROR);
+  //     goto out;
+  //   }
+  //   app_state = SERVER_REGISTERED;
+  //   gst_print ("Registered with server\n");
+  //   if (!our_id) {
+  //     /* Ask signalling server to connect us with a specific peer */
+  //     // if (!setup_call ()) {
+  //     //   cleanup_and_quit_loop ("ERROR: Failed to setup call", PEER_CALL_ERROR);
+  //     //   goto out;
+  //     // }
+  //   } else {
+  //     gst_println ("Waiting for connection from peer (our-id: %s)", our_id);
+  //   }
+  // } else if (g_strcmp0 (text, "SESSION_OK") == 0) {
+  //   /* The call initiated by us has been setup by the server; now we can start
+  //    * negotiation */
+  //   if (app_state != PEER_CONNECTING) {
+  //     cleanup_and_quit_loop ("ERROR: Received SESSION_OK when not calling",
+  //         PEER_CONNECTION_ERROR);
+  //     goto out;
+  //   }
 
-    app_state = PEER_CONNECTED;
-    /* Start negotiation (exchange SDP and ICE candidates) */
-    if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
-      cleanup_and_quit_loop ("ERROR: failed to start pipeline",
-          PEER_CALL_ERROR);
-  } else if (g_strcmp0 (text, "OFFER_REQUEST") == 0) {
-    if (app_state != SERVER_REGISTERED) {
-      gst_printerr ("Received OFFER_REQUEST at a strange time, ignoring\n");
-      goto out;
-    }
-    gst_print ("Received OFFER_REQUEST, sending offer\n");
-    /* Peer wants us to start negotiation (exchange SDP and ICE candidates) */
-    if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
-      cleanup_and_quit_loop ("ERROR: failed to start pipeline",
-          PEER_CALL_ERROR);
-  } else if (g_str_has_prefix (text, "ERROR")) {
-    /* Handle errors */
-    switch (app_state) {
-      case SERVER_CONNECTING:
-        app_state = SERVER_CONNECTION_ERROR;
-        break;
-      case SERVER_REGISTERING:
-        app_state = SERVER_REGISTRATION_ERROR;
-        break;
-      case PEER_CONNECTING:
-        app_state = PEER_CONNECTION_ERROR;
-        break;
-      case PEER_CONNECTED:
-      case PEER_CALL_NEGOTIATING:
-        app_state = PEER_CALL_ERROR;
-        break;
-      default:
-        app_state = APP_STATE_ERROR;
-    }
-    cleanup_and_quit_loop (text, 0);
-  } else {
-    /* Look for JSON messages containing SDP and ICE candidates */
-    JsonNode *root;
-    JsonObject *object, *child;
-    JsonParser *parser = json_parser_new ();
-    if (!json_parser_load_from_data (parser, text, -1, NULL)) {
-      gst_printerr ("Unknown message '%s', ignoring\n", text);
-      g_object_unref (parser);
-      goto out;
-    }
+  //   app_state = PEER_CONNECTED;
+  //   /* Start negotiation (exchange SDP and ICE candidates) */
+  //   if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
+  //     cleanup_and_quit_loop ("ERROR: failed to start pipeline",
+  //         PEER_CALL_ERROR);
+  // } else if (g_strcmp0 (text, "OFFER_REQUEST") == 0) {
+  //   if (app_state != SERVER_REGISTERED) {
+  //     gst_printerr ("Received OFFER_REQUEST at a strange time, ignoring\n");
+  //     goto out;
+  //   }
+  //   gst_print ("Received OFFER_REQUEST, sending offer\n");
+  //   /* Peer wants us to start negotiation (exchange SDP and ICE candidates) */
+  //   if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
+  //     cleanup_and_quit_loop ("ERROR: failed to start pipeline",
+  //         PEER_CALL_ERROR);
+  // } else if (g_str_has_prefix (text, "ERROR")) {
+  //   /* Handle errors */
+  //   switch (app_state) {
+  //     case SERVER_CONNECTING:
+  //       app_state = SERVER_CONNECTION_ERROR;
+  //       break;
+  //     case SERVER_REGISTERING:
+  //       app_state = SERVER_REGISTRATION_ERROR;
+  //       break;
+  //     case PEER_CONNECTING:
+  //       app_state = PEER_CONNECTION_ERROR;
+  //       break;
+  //     case PEER_CONNECTED:
+  //     case PEER_CALL_NEGOTIATING:
+  //       app_state = PEER_CALL_ERROR;
+  //       break;
+  //     default:
+  //       app_state = APP_STATE_ERROR;
+  //   }
+  //   cleanup_and_quit_loop (text, 0);
+  // } else {
 
-    root = json_parser_get_root (parser);
-    if (!JSON_NODE_HOLDS_OBJECT (root)) {
-      gst_printerr ("Unknown json message '%s', ignoring\n", text);
-      g_object_unref (parser);
-      goto out;
-    }
-
-    object = json_node_get_object (root);
-    /* Check type of JSON message */
-    if (json_object_has_member (object, "sdp")) {
-      int ret;
-      GstSDPMessage *sdp;
-      const gchar *text, *sdptype;
-      GstWebRTCSessionDescription *answer;
-
-      app_state = PEER_CALL_NEGOTIATING;
-
-      child = json_object_get_object_member (object, "sdp");
-
-      if (!json_object_has_member (child, "type")) {
-        cleanup_and_quit_loop ("ERROR: received SDP without 'type'",
-            PEER_CALL_ERROR);
-        goto out;
-      }
-
-      sdptype = json_object_get_string_member (child, "type");
-      /* In this example, we create the offer and receive one answer by default,
-       * but it's possible to comment out the offer creation and wait for an offer
-       * instead, so we handle either here.
-       *
-       * See tests/examples/webrtcbidirectional.c in gst-plugins-bad for another
-       * example how to handle offers from peers and reply with answers using webrtcbin. */
-      text = json_object_get_string_member (child, "sdp");
-      ret = gst_sdp_message_new (&sdp);
-      g_assert_cmphex (ret, ==, GST_SDP_OK);
-      ret = gst_sdp_message_parse_buffer ((guint8 *) text, strlen (text), sdp);
-      g_assert_cmphex (ret, ==, GST_SDP_OK);
-
-      if (g_str_equal (sdptype, "answer")) {
-        gst_print ("Received answer:\n%s\n", text);
-        answer = gst_webrtc_session_description_new (GST_WEBRTC_SDP_TYPE_ANSWER,
-            sdp);
-        g_assert_nonnull (answer);
-
-        /* Set remote description on our pipeline */
-        {
-          GstPromise *promise = gst_promise_new ();
-          g_signal_emit_by_name (webrtc1, "set-remote-description", answer,
-              promise);
-          gst_promise_interrupt (promise);
-          gst_promise_unref (promise);
-        }
-        app_state = PEER_CALL_STARTED;
-      } else {
-        gst_print ("Received offer:\n%s\n", text);
-        on_offer_received (sdp);
-      }
-
-    } else if (json_object_has_member (object, "ice")) {
-      const gchar *candidate;
-      gint sdpmlineindex;
-
-      child = json_object_get_object_member (object, "ice");
-      candidate = json_object_get_string_member (child, "candidate");
-      sdpmlineindex = json_object_get_int_member (child, "sdpMLineIndex");
-
-      /* Add ice candidate sent by remote peer */
-      g_signal_emit_by_name (webrtc1, "add-ice-candidate", sdpmlineindex,
-          candidate);
-    } else {
-      gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);
-    }
+  /* Look for JSON messages containing SDP and ICE candidates */
+  JsonNode *root;
+  JsonObject *object, *child;
+  JsonParser *parser = json_parser_new ();
+  if (!json_parser_load_from_data (parser, text, -1, NULL)) {
+    gst_printerr ("Unknown message '%s', ignoring\n", text);
     g_object_unref (parser);
+    goto out;
   }
+
+  root = json_parser_get_root (parser);
+  if (!JSON_NODE_HOLDS_OBJECT (root)) {
+    gst_printerr ("Unknown json message '%s', ignoring\n", text);
+    g_object_unref (parser);
+    goto out;
+  }
+
+  object = json_node_get_object (root);
+  
+  /* Check type of JSON message */
+  if (json_object_has_member (object, "sdp")) {
+    int ret;
+    GstSDPMessage *sdp;
+    const gchar *text, *sdptype;
+    GstWebRTCSessionDescription *answer;
+
+    app_state = PEER_CALL_NEGOTIATING;
+
+    child = json_object_get_object_member (object, "sdp");
+
+    if (!json_object_has_member (child, "type")) {
+      cleanup_and_quit_loop ("ERROR: received SDP without 'type'",
+          PEER_CALL_ERROR);
+      goto out;
+    }
+
+    sdptype = json_object_get_string_member (child, "type");
+    /* In this example, we create the offer and receive one answer by default,
+     * but it's possible to comment out the offer creation and wait for an offer
+     * instead, so we handle either here.
+     *
+     * See tests/examples/webrtcbidirectional.c in gst-plugins-bad for another
+     * example how to handle offers from peers and reply with answers using webrtcbin. */
+    text = json_object_get_string_member (child, "sdp");
+    ret = gst_sdp_message_new (&sdp);
+    g_assert_cmphex (ret, ==, GST_SDP_OK);
+    ret = gst_sdp_message_parse_buffer ((guint8 *) text, strlen (text), sdp);
+    g_assert_cmphex (ret, ==, GST_SDP_OK);
+
+    if (g_str_equal (sdptype, "answer")) {
+      gst_print ("Received answer:\n%s\n", text);
+      answer = gst_webrtc_session_description_new (GST_WEBRTC_SDP_TYPE_ANSWER,
+          sdp);
+      g_assert_nonnull (answer);
+
+      /* Set remote description on our pipeline */
+      {
+        GstPromise *promise = gst_promise_new ();
+        g_signal_emit_by_name (webrtc1, "set-remote-description", answer,
+            promise);
+        gst_promise_interrupt (promise);
+        gst_promise_unref (promise);
+      }
+      app_state = PEER_CALL_STARTED;
+    } else {
+      gst_print ("Received offer:\n%s\n", text);
+      on_offer_received (sdp);
+    }
+
+  } else if (json_object_has_member (object, "ice")) {
+    const gchar *candidate;
+    gint sdpmlineindex;
+
+    child = json_object_get_object_member (object, "ice");
+    candidate = json_object_get_string_member (child, "candidate");
+    sdpmlineindex = json_object_get_int_member (child, "sdpMLineIndex");
+
+    /* Add ice candidate sent by remote peer */
+    g_signal_emit_by_name (webrtc1, "add-ice-candidate", sdpmlineindex,
+        candidate);
+  } else {
+    gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);
+  }
+  g_object_unref (parser);
+  // }
 
 out:
   g_free (text);
