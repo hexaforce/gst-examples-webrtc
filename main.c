@@ -59,10 +59,10 @@ static gboolean remote_is_offerer = FALSE;
 static gboolean custom_ice = FALSE;
 
 static GOptionEntry entries[] = {
-  {"peer-id", 0, 0, G_OPTION_ARG_STRING, &peer_id,
-      "String ID of the peer to connect to", "ID"},
-  {"our-id", 0, 0, G_OPTION_ARG_STRING, &our_id,
-      "String ID that the peer can use to connect to us", "ID"},
+  // {"peer-id", 0, 0, G_OPTION_ARG_STRING, &peer_id,
+  //     "String ID of the peer to connect to", "ID"},
+  // {"our-id", 0, 0, G_OPTION_ARG_STRING, &our_id,
+  //     "String ID that the peer can use to connect to us", "ID"},
   {"server", 0, 0, G_OPTION_ARG_STRING, &server_url,
       "Signalling server to connect to", "URL"},
   {"disable-ssl", 0, 0, G_OPTION_ARG_NONE, &disable_ssl, "Disable ssl", NULL},
@@ -620,25 +620,25 @@ err:
   return FALSE;
 }
 
-static gboolean
-setup_call (void)
-{
-  gchar *msg;
+// static gboolean
+// setup_call (void)
+// {
+//   gchar *msg;
 
-  if (soup_websocket_connection_get_state (ws_conn) !=
-      SOUP_WEBSOCKET_STATE_OPEN)
-    return FALSE;
+//   if (soup_websocket_connection_get_state (ws_conn) !=
+//       SOUP_WEBSOCKET_STATE_OPEN)
+//     return FALSE;
 
-  if (!peer_id)
-    return FALSE;
+//   if (!peer_id)
+//     return FALSE;
 
-  gst_print ("Setting up signalling server call with %s\n", peer_id);
-  app_state = PEER_CONNECTING;
-  msg = g_strdup_printf ("SESSION %s", peer_id);
-  soup_websocket_connection_send_text (ws_conn, msg);
-  g_free (msg);
-  return TRUE;
-}
+//   gst_print ("Setting up signalling server call with %s\n", peer_id);
+//   app_state = PEER_CONNECTING;
+//   msg = g_strdup_printf ("SESSION %s", peer_id);
+//   soup_websocket_connection_send_text (ws_conn, msg);
+//   g_free (msg);
+//   return TRUE;
+// }
 
 static gboolean
 register_with_server (void)
@@ -807,10 +807,10 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
     gst_print ("Registered with server\n");
     if (!our_id) {
       /* Ask signalling server to connect us with a specific peer */
-      if (!setup_call ()) {
-        cleanup_and_quit_loop ("ERROR: Failed to setup call", PEER_CALL_ERROR);
-        goto out;
-      }
+      // if (!setup_call ()) {
+      //   cleanup_and_quit_loop ("ERROR: Failed to setup call", PEER_CALL_ERROR);
+      //   goto out;
+      // }
     } else {
       gst_println ("Waiting for connection from peer (our-id: %s)", our_id);
     }
@@ -1057,15 +1057,15 @@ gst_main (int argc, char *argv[])
     goto out;
   }
 
-  if (!peer_id && !our_id) {
-    gst_printerr ("--peer-id or --our-id is a required argument\n");
-    goto out;
-  }
+  // if (!peer_id && !our_id) {
+  //   gst_printerr ("--peer-id or --our-id is a required argument\n");
+  //   goto out;
+  // }
 
-  if (peer_id && our_id) {
-    gst_printerr ("specify only --peer-id or --our-id\n");
-    goto out;
-  }
+  // if (peer_id && our_id) {
+  //   gst_printerr ("specify only --peer-id or --our-id\n");
+  //   goto out;
+  // }
 
   ret_code = 0;
 
@@ -1102,8 +1102,8 @@ gst_main (int argc, char *argv[])
   }
 
 out:
-  g_free (peer_id);
-  g_free (our_id);
+  // g_free (peer_id);
+  // g_free (our_id);
 
   return ret_code;
 }
