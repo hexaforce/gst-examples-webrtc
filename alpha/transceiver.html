@@ -1,0 +1,26 @@
+<html>
+<head>
+  <script type='text/javascript'>
+    window.onload = async () => {
+      var ws = new WebSocket(`${window.location}ws`, 'transceiver')
+      var conn = new RTCPeerConnection()
+      conn.onicecandidate = ({ candidate }) => candidate && ws.send(JSON.stringify(candidate))
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      conn.addStream(stream)
+      const offer = await conn.createOffer()
+      await conn.setLocalDescription(offer)
+      ws.send(JSON.stringify(offer))
+      ws.onmessage = async ({ data }) => {
+        const msg = JSON.parse(data)
+        if (msg.type) {
+          await conn.setRemoteDescription(msg)
+        } else {
+          await conn.addIceCandidate(new RTCIceCandidate(msg))
+        }
+      }
+    }
+  </script>
+</head>
+<body>
+</body>
+</html>

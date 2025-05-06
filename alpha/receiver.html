@@ -1,0 +1,31 @@
+<html>
+<head>
+  <script type='text/javascript'>
+    window.onload = () => {
+      var ws = new WebSocket(`${window.location}ws`, 'receiver')
+      var conn
+      ws.onmessage = async ({ data }) => {
+        if (!conn) {
+          conn = new RTCPeerConnection()
+          conn.onicecandidate = ({ candidate }) => candidate && ws.send(JSON.stringify(candidate))
+          conn.ontrack = ({ streams }) => (document.getElementById('stream').srcObject = streams[0])
+        }
+        const msg = JSON.parse(data)
+        if (msg.type) {
+          await conn.setRemoteDescription(msg)
+          const answer = await conn.createAnswer()
+          await conn.setLocalDescription(answer)
+          ws.send(JSON.stringify(answer))
+        } else {
+          await conn.addIceCandidate(new RTCIceCandidate(msg))
+        }
+      }
+    }
+  </script>
+</head>
+<body>
+  <div>
+    <video id='stream' autoplay playsinline muted>Your browser does not support video</video>
+  </div>
+</body>
+</html>

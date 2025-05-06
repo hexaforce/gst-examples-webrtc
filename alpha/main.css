@@ -1,0 +1,81 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
+svg {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis line {
+  shape-rendering: auto;
+}
+
+.line {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+/* video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+} */
+
+#peercontainer {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+#peercontainer > div {
+  border: 1px solid #ccc;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+#peercontainer > div:first-child {
+  flex: 1;
+  min-width: 200px;
+}
+
+#peercontainer > div:last-child {
+  flex: 3;
+}
+
+#rtpcontainer {
+  display: flex;
+  flex-direction: column;
+}
+
+#ctatisticscontainer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px;
+}
+
+#ctatisticscontainer > div {
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+#ctatisticscontainer > div > pre {
+  text-align: left;
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+  word-wrap: normal;
+}
