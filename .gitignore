@@ -4,3 +4,4 @@ webrtc-sendrecv
 webrtc-soup
 *.dSYM/
 main
+ca-cert.pem
