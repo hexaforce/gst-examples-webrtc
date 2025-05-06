@@ -6,6 +6,7 @@ CC     := gcc
 LIBS   := $(shell pkg-config --libs --cflags glib-2.0 gstreamer-1.0 gstreamer-rtp-1.0 gstreamer-sdp-1.0 gstreamer-webrtc-1.0 json-glib-1.0 libsoup-3.0 gstreamer-webrtc-nice-1.0)
 CFLAGS := -O0 -ggdb -Wall -fno-omit-frame-pointer \
 		$(shell pkg-config --cflags glib-2.0 gstreamer-1.0 gstreamer-rtp-1.0 gstreamer-sdp-1.0 gstreamer-webrtc-1.0 json-glib-1.0 libsoup-3.0)
+CFLAGS += -DGST_USE_UNSTABLE_API
 
 main: main.c custom_agent.c
 	$(CC) $(CFLAGS) $^ $(LIBS) -o $@

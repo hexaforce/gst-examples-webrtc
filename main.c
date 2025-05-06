@@ -51,7 +51,7 @@ static GObject *send_channel, *receive_channel;
 
 static SoupWebsocketConnection *ws_conn = NULL;
 static enum AppState app_state = 0;
-static gchar *peer_id = NULL;
+static gchar *sender_id = NULL;
 static gchar *our_id = NULL;
 static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
 static gboolean disable_ssl = TRUE;
@@ -59,7 +59,7 @@ static gboolean remote_is_offerer = FALSE;
 static gboolean custom_ice = FALSE;
 
 static GOptionEntry entries[] = {
-  // {"peer-id", 0, 0, G_OPTION_ARG_STRING, &peer_id,
+  // {"peer-id", 0, 0, G_OPTION_ARG_STRING, &sender_id,
   //     "String ID of the peer to connect to", "ID"},
   // {"our-id", 0, 0, G_OPTION_ARG_STRING, &our_id,
   //     "String ID that the peer can use to connect to us", "ID"},
@@ -629,12 +629,12 @@ err:
 //       SOUP_WEBSOCKET_STATE_OPEN)
 //     return FALSE;
 
-//   if (!peer_id)
+//   if (!sender_id)
 //     return FALSE;
 
-//   gst_print ("Setting up signalling server call with %s\n", peer_id);
+//   gst_print ("Setting up signalling server call with %s\n", sender_id);
 //   app_state = PEER_CONNECTING;
-//   msg = g_strdup_printf ("SESSION %s", peer_id);
+//   msg = g_strdup_printf ("SESSION %s", sender_id);
 //   soup_websocket_connection_send_text (ws_conn, msg);
 //   g_free (msg);
 //   return TRUE;
@@ -1057,12 +1057,12 @@ gst_main (int argc, char *argv[])
   if (!check_plugins ()) {
     goto out;
   }
-  // if (!peer_id && !our_id) {
+  // if (!sender_id && !our_id) {
   //   gst_printerr ("--peer-id or --our-id is a required argument\n");
   //   goto out;
   // }
 
-  // if (peer_id && our_id) {
+  // if (sender_id && our_id) {
   //   gst_printerr ("specify only --peer-id or --our-id\n");
   //   goto out;
   // }
@@ -1102,7 +1102,7 @@ gst_main (int argc, char *argv[])
   }
 
 out:
-  // g_free (peer_id);
+  // g_free (sender_id);
   // g_free (our_id);
 
   return ret_code;
