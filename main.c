@@ -1002,7 +1002,8 @@ connect_to_websocket_server_async (void)
   gst_print ("Connecting to server...\n");
 
   /* Once connected, we will register */
-  soup_session_websocket_connect_async (session, message, NULL, NULL,
+  const char *protocols[] = { "sender", NULL };
+  soup_session_websocket_connect_async (session, message, NULL, protocols,
 #if SOUP_CHECK_VERSION(3,0,0)
       G_PRIORITY_DEFAULT,
 #endif
@@ -1056,7 +1057,6 @@ gst_main (int argc, char *argv[])
   if (!check_plugins ()) {
     goto out;
   }
-
   // if (!peer_id && !our_id) {
   //   gst_printerr ("--peer-id or --our-id is a required argument\n");
   //   goto out;
