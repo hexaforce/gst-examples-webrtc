@@ -774,6 +774,94 @@ on_offer_received (GstSDPMessage * sdp)
   gst_webrtc_session_description_free (offer);
 }
 
+#define SENDER_SESSION_ID_ISSUANCE        0
+#define SENDER_MEDIA_DEVICE_LIST_REQUEST  1
+#define SENDER_MEDIA_STREAM_START         2
+#define SENDER_SDP_ANSWER                 3
+#define SENDER_ICE                        4
+#define SENDER_SYSTEM_ERROR               9
+
+#define RECEIVER_SESSION_ID_ISSUANCE      0
+#define RECEIVER_CHANGE_SENDER_ENTRIES    1
+#define RECEIVER_MEDIA_DEVICE_LIST_RESPONSE 2
+#define RECEIVER_SDP_OFFER                3
+#define RECEIVER_ICE                      4
+#define RECEIVER_SYSTEM_ERROR             9
+
+static void
+ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
+    const gchar * ws2Id, JsonObject * data)
+{
+  JsonObject *msg = json_object_new ();
+
+  json_object_set_int_member (msg, "type", type);
+  json_object_set_string_member (msg, "ws1Id", ws1Id);
+  json_object_set_string_member (msg, "ws2Id", ws2Id);
+
+  GList *members = json_object_get_members (data);
+  for (GList * l = members; l != NULL; l = l->next) {
+    const gchar *key = l->data;
+    JsonNode *value = json_object_get_member (data, key);
+    json_object_set_member (msg, key, json_node_copy (value));
+  }
+  g_list_free (members);
+
+  JsonNode *root = json_node_new (JSON_NODE_OBJECT);
+  json_node_set_object (root, msg);
+
+  JsonGenerator *gen = json_generator_new ();
+  json_generator_set_root (gen, root);
+  gchar *json_str = json_generator_to_data (gen, NULL);
+
+  soup_websocket_connection_send_text (conn, json_str);
+
+  g_object_unref (gen);
+  json_node_free (root);
+  g_free (json_str);
+}
+
+static JsonArray *
+get_media_devices ()
+{
+  GstDeviceMonitor *monitor;
+  GList *devices, *l;
+  JsonArray *device_array = json_array_new ();
+
+  gst_init (NULL, NULL);
+  monitor = gst_device_monitor_new ();
+
+  gst_device_monitor_add_filter (monitor, "Video/Source", NULL);
+  gst_device_monitor_add_filter (monitor, "Audio/Source", NULL);
+
+  gst_device_monitor_start (monitor);
+
+  devices = gst_device_monitor_get_devices (monitor);
+  for (l = devices; l != NULL; l = l->next) {
+    GstDevice *device = GST_DEVICE (l->data);
+    const gchar *name = gst_device_get_display_name (device);
+    const gchar *klass = gst_device_get_device_class (device);
+    GstCaps *caps = gst_device_get_caps (device);
+    gchar *caps_str = caps ? gst_caps_to_string (caps) : g_strdup ("none");
+
+    JsonObject *dev = json_object_new ();
+    json_object_set_string_member (dev, "name", name);
+    json_object_set_string_member (dev, "class", klass ? klass : "unknown");
+    json_object_set_string_member (dev, "caps", caps_str);
+
+    json_array_add_object_element (device_array, dev);
+
+    g_free (caps_str);
+    if (caps)
+      gst_caps_unref (caps);
+  }
+
+  g_list_free_full (devices, (GDestroyNotify) gst_object_unref);
+  gst_device_monitor_stop (monitor);
+  g_object_unref (monitor);
+
+  return device_array;
+}
+
 /* One mega message handler for our asynchronous calling mechanism */
 static void
 on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
@@ -788,7 +876,6 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
     case SOUP_WEBSOCKET_DATA_TEXT:{
       gsize size;
       const gchar *data = g_bytes_get_data (message, &size);
-      /* Convert to NULL-terminated string */
       text = g_strndup (data, size);
       break;
     }
@@ -796,71 +883,6 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       g_assert_not_reached ();
   }
 
-  // if (g_strcmp0 (text, "HELLO") == 0) {
-  //   /* Server has accepted our registration, we are ready to send commands */
-  //   if (app_state != SERVER_REGISTERING) {
-  //     cleanup_and_quit_loop ("ERROR: Received HELLO when not registering",
-  //         APP_STATE_ERROR);
-  //     goto out;
-  //   }
-  //   app_state = SERVER_REGISTERED;
-  //   gst_print ("Registered with server\n");
-  //   if (!our_id) {
-  //     /* Ask signalling server to connect us with a specific peer */
-  //     // if (!setup_call ()) {
-  //     //   cleanup_and_quit_loop ("ERROR: Failed to setup call", PEER_CALL_ERROR);
-  //     //   goto out;
-  //     // }
-  //   } else {
-  //     gst_println ("Waiting for connection from peer (our-id: %s)", our_id);
-  //   }
-  // } else if (g_strcmp0 (text, "SESSION_OK") == 0) {
-  //   /* The call initiated by us has been setup by the server; now we can start
-  //    * negotiation */
-  //   if (app_state != PEER_CONNECTING) {
-  //     cleanup_and_quit_loop ("ERROR: Received SESSION_OK when not calling",
-  //         PEER_CONNECTION_ERROR);
-  //     goto out;
-  //   }
-
-  //   app_state = PEER_CONNECTED;
-  //   /* Start negotiation (exchange SDP and ICE candidates) */
-  //   if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
-  //     cleanup_and_quit_loop ("ERROR: failed to start pipeline",
-  //         PEER_CALL_ERROR);
-  // } else if (g_strcmp0 (text, "OFFER_REQUEST") == 0) {
-  //   if (app_state != SERVER_REGISTERED) {
-  //     gst_printerr ("Received OFFER_REQUEST at a strange time, ignoring\n");
-  //     goto out;
-  //   }
-  //   gst_print ("Received OFFER_REQUEST, sending offer\n");
-  //   /* Peer wants us to start negotiation (exchange SDP and ICE candidates) */
-  //   if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT))
-  //     cleanup_and_quit_loop ("ERROR: failed to start pipeline",
-  //         PEER_CALL_ERROR);
-  // } else if (g_str_has_prefix (text, "ERROR")) {
-  //   /* Handle errors */
-  //   switch (app_state) {
-  //     case SERVER_CONNECTING:
-  //       app_state = SERVER_CONNECTION_ERROR;
-  //       break;
-  //     case SERVER_REGISTERING:
-  //       app_state = SERVER_REGISTRATION_ERROR;
-  //       break;
-  //     case PEER_CONNECTING:
-  //       app_state = PEER_CONNECTION_ERROR;
-  //       break;
-  //     case PEER_CONNECTED:
-  //     case PEER_CALL_NEGOTIATING:
-  //       app_state = PEER_CALL_ERROR;
-  //       break;
-  //     default:
-  //       app_state = APP_STATE_ERROR;
-  //   }
-  //   cleanup_and_quit_loop (text, 0);
-  // } else {
-
-  /* Look for JSON messages containing SDP and ICE candidates */
   JsonNode *root;
   JsonObject *object, *child;
   JsonParser *parser = json_parser_new ();
@@ -878,73 +900,132 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
   }
 
   object = json_node_get_object (root);
-  
-  /* Check type of JSON message */
-  if (json_object_has_member (object, "sdp")) {
-    int ret;
-    GstSDPMessage *sdp;
-    const gchar *text, *sdptype;
-    GstWebRTCSessionDescription *answer;
 
-    app_state = PEER_CALL_NEGOTIATING;
+  // if (json_object_has_member (object, "sdp")) {
+  //   int ret;
+  //   GstSDPMessage *sdp;
+  //   const gchar *text, *sdptype;
+  //   GstWebRTCSessionDescription *answer;
 
-    child = json_object_get_object_member (object, "sdp");
+  //   app_state = PEER_CALL_NEGOTIATING;
 
-    if (!json_object_has_member (child, "type")) {
-      cleanup_and_quit_loop ("ERROR: received SDP without 'type'",
-          PEER_CALL_ERROR);
-      goto out;
-    }
+  //   child = json_object_get_object_member (object, "sdp");
 
-    sdptype = json_object_get_string_member (child, "type");
-    /* In this example, we create the offer and receive one answer by default,
-     * but it's possible to comment out the offer creation and wait for an offer
-     * instead, so we handle either here.
-     *
-     * See tests/examples/webrtcbidirectional.c in gst-plugins-bad for another
-     * example how to handle offers from peers and reply with answers using webrtcbin. */
-    text = json_object_get_string_member (child, "sdp");
-    ret = gst_sdp_message_new (&sdp);
-    g_assert_cmphex (ret, ==, GST_SDP_OK);
-    ret = gst_sdp_message_parse_buffer ((guint8 *) text, strlen (text), sdp);
-    g_assert_cmphex (ret, ==, GST_SDP_OK);
+  //   if (!json_object_has_member (child, "type")) {
+  //     cleanup_and_quit_loop ("ERROR: received SDP without 'type'",
+  //         PEER_CALL_ERROR);
+  //     goto out;
+  //   }
 
-    if (g_str_equal (sdptype, "answer")) {
-      gst_print ("Received answer:\n%s\n", text);
-      answer = gst_webrtc_session_description_new (GST_WEBRTC_SDP_TYPE_ANSWER,
-          sdp);
-      g_assert_nonnull (answer);
+  //   sdptype = json_object_get_string_member (child, "type");
+  //   /* In this example, we create the offer and receive one answer by default,
+  //    * but it's possible to comment out the offer creation and wait for an offer
+  //    * instead, so we handle either here.
+  //    *
+  //    * See tests/examples/webrtcbidirectional.c in gst-plugins-bad for another
+  //    * example how to handle offers from peers and reply with answers using webrtcbin. */
+  //   text = json_object_get_string_member (child, "sdp");
+  //   ret = gst_sdp_message_new (&sdp);
+  //   g_assert_cmphex (ret, ==, GST_SDP_OK);
+  //   ret = gst_sdp_message_parse_buffer ((guint8 *) text, strlen (text), sdp);
+  //   g_assert_cmphex (ret, ==, GST_SDP_OK);
 
-      /* Set remote description on our pipeline */
-      {
-        GstPromise *promise = gst_promise_new ();
-        g_signal_emit_by_name (webrtc1, "set-remote-description", answer,
-            promise);
-        gst_promise_interrupt (promise);
-        gst_promise_unref (promise);
-      }
-      app_state = PEER_CALL_STARTED;
-    } else {
-      gst_print ("Received offer:\n%s\n", text);
-      on_offer_received (sdp);
-    }
+  //   if (g_str_equal (sdptype, "answer")) {
+  //     gst_print ("Received answer:\n%s\n", text);
+  //     answer = gst_webrtc_session_description_new (GST_WEBRTC_SDP_TYPE_ANSWER,
+  //         sdp);
+  //     g_assert_nonnull (answer);
 
-  } else if (json_object_has_member (object, "ice")) {
-    const gchar *candidate;
-    gint sdpmlineindex;
+  //     /* Set remote description on our pipeline */
+  //     {
+  //       GstPromise *promise = gst_promise_new ();
+  //       g_signal_emit_by_name (webrtc1, "set-remote-description", answer,
+  //           promise);
+  //       gst_promise_interrupt (promise);
+  //       gst_promise_unref (promise);
+  //     }
+  //     app_state = PEER_CALL_STARTED;
+  //   } else {
+  //     gst_print ("Received offer:\n%s\n", text);
+  //     on_offer_received (sdp);
+  //   }
 
-    child = json_object_get_object_member (object, "ice");
-    candidate = json_object_get_string_member (child, "candidate");
-    sdpmlineindex = json_object_get_int_member (child, "sdpMLineIndex");
+  // } else if (json_object_has_member (object, "ice")) {
+  //   const gchar *candidate;
+  //   gint sdpmlineindex;
 
-    /* Add ice candidate sent by remote peer */
-    g_signal_emit_by_name (webrtc1, "add-ice-candidate", sdpmlineindex,
-        candidate);
-  } else {
-    gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);
-  }
-  g_object_unref (parser);
+  //   child = json_object_get_object_member (object, "ice");
+  //   candidate = json_object_get_string_member (child, "candidate");
+  //   sdpmlineindex = json_object_get_int_member (child, "sdpMLineIndex");
+
+  //   /* Add ice candidate sent by remote peer */
+  //   g_signal_emit_by_name (webrtc1, "add-ice-candidate", sdpmlineindex,
+  //       candidate);
+  // } else {
+  //   gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);
   // }
+  /* Check type of JSON message */
+  if (!json_object_has_member (object, "type")) {
+    gst_printerr ("No 'type' field in message: '%s'\n", text);
+    g_object_unref (parser);
+    goto out;
+  }
+
+  gint type_value = json_object_get_int_member (object, "type");
+
+  const gchar *ws1Id = json_object_has_member (object, "ws1Id") ?
+      json_object_get_string_member (object, "ws1Id") : NULL;
+  const gchar *ws2Id = json_object_has_member (object, "ws2Id") ?
+      json_object_get_string_member (object, "ws2Id") : NULL;
+
+  switch (type_value) {
+    case SENDER_SESSION_ID_ISSUANCE:{
+      sender_id = json_object_get_string_member (object, "sessionId");
+      g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", sender_id);
+      break;
+    }
+    case SENDER_MEDIA_DEVICE_LIST_REQUEST:{
+      g_print ("MEDIA_DEVICE_LIST_REQUEST from %s\n", ws2Id);
+
+      JsonArray *devices = get_media_devices ();
+      JsonObject *payload = json_object_new ();
+      json_object_set_array_member (payload, "devices", devices);
+
+      ws_send (ws_conn, RECEIVER_MEDIA_DEVICE_LIST_RESPONSE, ws1Id, ws2Id,
+          payload);
+
+      break;
+    }
+    case SENDER_MEDIA_STREAM_START:{
+      JsonObject *constraints =
+          json_object_get_object_member (object, "constraints");
+      // TODO: constraints を元に getUserMedia 相当処理を行う
+      g_print ("MEDIA_STREAM_START with constraints\n");
+      break;
+    }
+    case SENDER_SDP_ANSWER:{
+      JsonObject *answer = json_object_get_object_member (object, "answer");
+      const gchar *sdp = json_object_get_string_member (answer, "sdp");
+      g_print ("SDP_ANSWER: %s\n", sdp);
+      // TODO: sdp を RemoteDescription に設定
+      break;
+    }
+    case SENDER_ICE:{
+      JsonObject *candidate =
+          json_object_get_object_member (object, "candidate");
+      const gchar *candidateStr =
+          json_object_get_string_member (candidate, "candidate");
+      g_print ("ICE: %s\n", candidateStr);
+      // TODO: ICE Candidate を追加
+      break;
+    }
+    case SENDER_SYSTEM_ERROR:
+    default:
+      g_print ("Unhandled message type: %d\n", type_value);
+      break;
+  }
+
+  g_object_unref (parser);
 
 out:
   g_free (text);
