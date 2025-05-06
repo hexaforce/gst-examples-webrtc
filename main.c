@@ -1036,7 +1036,7 @@ check_plugins (void)
 }
 
 int
-main (int argc, char *argv[])
+gst_main (int argc, char *argv[])
 {
   GOptionContext *context;
   GError *error = NULL;
@@ -1106,4 +1106,24 @@ out:
   g_free (our_id);
 
   return ret_code;
+}
+
+#ifdef __APPLE__
+int
+mac_main_function (int argc, char **argv, gpointer user_data)
+{
+  gst_init (&argc, &argv);
+  return gst_main (argc, argv);
+}
+#endif
+
+int
+main (int argc, char *argv[])
+{
+#ifdef __APPLE__
+  gst_macos_main (mac_main_function, argc, argv, NULL);
+#else
+  gst_init (&argc, &argv);
+  return gst_main (argc, argv);
+#endif
 }
