@@ -3,3 +3,4 @@ webrtc-recvonly-h264
 webrtc-sendrecv
 webrtc-soup
 *.dSYM/
+main
