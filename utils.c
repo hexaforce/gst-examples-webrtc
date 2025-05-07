@@ -1,6 +1,5 @@
 #include "utils.h"
 
-
 gboolean
 check_plugins (void)
 {
@@ -25,7 +24,6 @@ check_plugins (void)
   }
   return ret;
 }
-
 
 void
 ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
