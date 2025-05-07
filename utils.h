@@ -20,9 +20,15 @@
 #define RECEIVER_ICE                           4
 #define RECEIVER_SYSTEM_ERROR                  9
 
+gboolean check_plugins (void);
+
 void ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
     const gchar * ws2Id, JsonObject * data);
+
 JsonArray *get_media_devices (void);
+
 JsonObject *get_supported_codecs (void);
+
+gchar *get_string_from_json_object (JsonObject * object);
 
 #endif // UTILS_H

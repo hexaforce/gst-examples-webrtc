@@ -1,5 +1,32 @@
 #include "utils.h"
 
+
+gboolean
+check_plugins (void)
+{
+  int i;
+  gboolean ret;
+  GstPlugin *plugin;
+  GstRegistry *registry;
+  const gchar *needed[] = { "opus", "vpx", "nice", "webrtc", "dtls", "srtp",
+    "rtpmanager", "videotestsrc", "audiotestsrc", NULL
+  };
+
+  registry = gst_registry_get ();
+  ret = TRUE;
+  for (i = 0; i < g_strv_length ((gchar **) needed); i++) {
+    plugin = gst_registry_find_plugin (registry, needed[i]);
+    if (!plugin) {
+      gst_print ("Required gstreamer plugin '%s' not found\n", needed[i]);
+      ret = FALSE;
+      continue;
+    }
+    gst_object_unref (plugin);
+  }
+  return ret;
+}
+
+
 void
 ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
     const gchar * ws2Id, JsonObject * data)
@@ -178,4 +205,23 @@ get_supported_codecs ()
   json_object_set_array_member (root, "video", video_codecs);
   json_object_set_array_member (root, "audio", audio_codecs);
   return root;
+}
+
+gchar *
+get_string_from_json_object (JsonObject * object)
+{
+  JsonNode *root;
+  JsonGenerator *generator;
+  gchar *text;
+
+  /* Make it the root node */
+  root = json_node_init_object (json_node_alloc (), object);
+  generator = json_generator_new ();
+  json_generator_set_root (generator, root);
+  text = json_generator_to_data (generator, NULL);
+
+  /* Release everything */
+  g_object_unref (generator);
+  json_node_free (root);
+  return text;
 }
