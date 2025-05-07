@@ -20,6 +20,7 @@
 #include <json-glib/json-glib.h>
 
 #include <string.h>
+#include "utils.h"
 
 #ifdef G_OS_WIN32
 #define VIDEO_SRC "mfvideosrc"
@@ -634,55 +635,14 @@ err:
   return FALSE;
 }
 
-// static gboolean
-// setup_call (void)
-// {
-//   gchar *msg;
-
-//   if (soup_websocket_connection_get_state (ws_conn) !=
-//       SOUP_WEBSOCKET_STATE_OPEN)
-//     return FALSE;
-
-//   if (!sender_id)
-//     return FALSE;
-
-//   gst_print ("Setting up signalling server call with %s\n", sender_id);
-//   app_state = PEER_CONNECTING;
-//   msg = g_strdup_printf ("SESSION %s", sender_id);
-//   soup_websocket_connection_send_text (ws_conn, msg);
-//   g_free (msg);
-//   return TRUE;
-// }
-
 static gboolean
 register_with_server (void)
 {
-  // gchar *hello;
-
   if (soup_websocket_connection_get_state (ws_conn) !=
       SOUP_WEBSOCKET_STATE_OPEN)
     return FALSE;
 
-  // if (!our_id) {
-  //   gint32 id;
-
-  //   id = g_random_int_range (10, 10000);
-  //   gst_print ("Registering id %i with server\n", id);
-
-  //   hello = g_strdup_printf ("HELLO %i", id);
-  // } else {
-  //   gst_print ("Registering id %s with server\n", our_id);
-
-  //   hello = g_strdup_printf ("HELLO %s", our_id);
-  // }
-
   app_state = SERVER_REGISTERING;
-
-  /* Register with the server with a random integer id. Reply will be received
-   * by on_server_message() */
-  // soup_websocket_connection_send_text (ws_conn, hello);
-  // g_free (hello);
-
   return TRUE;
 }
 
@@ -694,293 +654,6 @@ on_server_closed (SoupWebsocketConnection * conn G_GNUC_UNUSED,
   cleanup_and_quit_loop ("Server connection closed", 0);
 }
 
-/* Answer created by our pipeline, to be sent to the peer */
-static void
-on_answer_created (GstPromise * promise, gpointer user_data)
-{
-  GstWebRTCSessionDescription *answer = NULL;
-  const GstStructure *reply;
-
-  g_assert_cmphex (app_state, ==, PEER_CALL_NEGOTIATING);
-
-  g_assert_cmphex (gst_promise_wait (promise), ==, GST_PROMISE_RESULT_REPLIED);
-  reply = gst_promise_get_reply (promise);
-  gst_structure_get (reply, "answer",
-      GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, NULL);
-  gst_promise_unref (promise);
-
-  promise = gst_promise_new ();
-  g_signal_emit_by_name (webrtc1, "set-local-description", answer, promise);
-  gst_promise_interrupt (promise);
-  gst_promise_unref (promise);
-
-  /* Send answer to peer */
-  send_sdp_to_peer (answer);
-  gst_webrtc_session_description_free (answer);
-}
-
-static void
-on_offer_set (GstPromise * promise, gpointer user_data)
-{
-  gst_promise_unref (promise);
-  promise = gst_promise_new_with_change_func (on_answer_created, NULL, NULL);
-  g_signal_emit_by_name (webrtc1, "create-answer", NULL, promise);
-}
-
-static void
-on_offer_received (GstSDPMessage * sdp)
-{
-  GstWebRTCSessionDescription *offer = NULL;
-  GstPromise *promise;
-
-  /* If we got an offer and we have no webrtcbin, we need to parse the SDP,
-   * get the payload types, then start the pipeline */
-  if (!webrtc1 && our_id) {
-    guint medias_len, formats_len;
-    guint opus_pt = 0, vp8_pt = 0;
-
-    gst_println ("Parsing offer to find payload types");
-
-    medias_len = gst_sdp_message_medias_len (sdp);
-    for (int i = 0; i < medias_len; i++) {
-      const GstSDPMedia *media = gst_sdp_message_get_media (sdp, i);
-      formats_len = gst_sdp_media_formats_len (media);
-      for (int j = 0; j < formats_len; j++) {
-        guint pt;
-        GstCaps *caps;
-        GstStructure *s;
-        const char *fmt, *encoding_name;
-
-        fmt = gst_sdp_media_get_format (media, j);
-        if (g_strcmp0 (fmt, "webrtc-datachannel") == 0)
-          continue;
-        pt = atoi (fmt);
-        caps = gst_sdp_media_get_caps_from_media (media, pt);
-        s = gst_caps_get_structure (caps, 0);
-        encoding_name = gst_structure_get_string (s, "encoding-name");
-        if (vp8_pt == 0 && g_strcmp0 (encoding_name, "VP8") == 0)
-          vp8_pt = pt;
-        if (opus_pt == 0 && g_strcmp0 (encoding_name, "OPUS") == 0)
-          opus_pt = pt;
-      }
-    }
-
-    g_assert_cmpint (opus_pt, !=, 0);
-    g_assert_cmpint (vp8_pt, !=, 0);
-
-    gst_println ("Starting pipeline with opus pt: %u vp8 pt: %u", opus_pt,
-        vp8_pt);
-
-    if (!start_pipeline (FALSE, opus_pt, vp8_pt)) {
-      cleanup_and_quit_loop ("ERROR: failed to start pipeline",
-          PEER_CALL_ERROR);
-    }
-  }
-
-  offer = gst_webrtc_session_description_new (GST_WEBRTC_SDP_TYPE_OFFER, sdp);
-  g_assert_nonnull (offer);
-
-  /* Set remote description on our pipeline */
-  {
-    promise = gst_promise_new_with_change_func (on_offer_set, NULL, NULL);
-    g_signal_emit_by_name (webrtc1, "set-remote-description", offer, promise);
-  }
-  gst_webrtc_session_description_free (offer);
-}
-
-#define SENDER_SESSION_ID_ISSUANCE        0
-#define SENDER_MEDIA_DEVICE_LIST_REQUEST  1
-#define SENDER_MEDIA_STREAM_START         2
-#define SENDER_SDP_ANSWER                 3
-#define SENDER_ICE                        4
-#define SENDER_SYSTEM_ERROR               9
-
-#define RECEIVER_SESSION_ID_ISSUANCE      0
-#define RECEIVER_CHANGE_SENDER_ENTRIES    1
-#define RECEIVER_MEDIA_DEVICE_LIST_RESPONSE 2
-#define RECEIVER_SDP_OFFER                3
-#define RECEIVER_ICE                      4
-#define RECEIVER_SYSTEM_ERROR             9
-
-static void
-ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
-    const gchar * ws2Id, JsonObject * data)
-{
-  JsonObject *msg = json_object_new ();
-
-  json_object_set_int_member (msg, "type", type);
-  json_object_set_string_member (msg, "ws1Id", ws1Id);
-  json_object_set_string_member (msg, "ws2Id", ws2Id);
-
-  GList *members = json_object_get_members (data);
-  for (GList * l = members; l != NULL; l = l->next) {
-    const gchar *key = l->data;
-    JsonNode *value = json_object_get_member (data, key);
-    json_object_set_member (msg, key, json_node_copy (value));
-  }
-  g_list_free (members);
-
-  JsonNode *root = json_node_new (JSON_NODE_OBJECT);
-  json_node_set_object (root, msg);
-
-  JsonGenerator *gen = json_generator_new ();
-  json_generator_set_root (gen, root);
-  gchar *json_str = json_generator_to_data (gen, NULL);
-
-  soup_websocket_connection_send_text (conn, json_str);
-
-  g_object_unref (gen);
-  json_node_free (root);
-  g_free (json_str);
-}
-
-static JsonArray *
-get_media_devices ()
-{
-  GstDeviceMonitor *monitor;
-  GList *devices, *l;
-  JsonArray *device_array = json_array_new ();
-
-  gst_init (NULL, NULL);
-  monitor = gst_device_monitor_new ();
-
-  gst_device_monitor_add_filter (monitor, "Video/Source", NULL);
-  gst_device_monitor_add_filter (monitor, "Audio/Source", NULL);
-
-  gst_device_monitor_start (monitor);
-
-  devices = gst_device_monitor_get_devices (monitor);
-  int index = 0;
-
-  for (l = devices; l != NULL; l = l->next, index++) {
-    GstDevice *device = GST_DEVICE (l->data);
-    const gchar *name = gst_device_get_display_name (device);
-    const gchar *klass = gst_device_get_device_class (device);
-    GstCaps *caps = gst_device_get_caps (device);
-    gchar *caps_str = caps ? gst_caps_to_string (caps) : g_strdup ("none");
-
-    JsonObject *dev = json_object_new ();
-
-    gchar *index_str = g_strdup_printf ("%d", index);
-    json_object_set_string_member (dev, "id", index_str);
-    json_object_set_string_member (dev, "name", name);
-    json_object_set_string_member (dev, "klass", klass ? klass : "unknown");
-    json_object_set_string_member (dev, "caps", caps_str);
-
-    json_array_add_object_element (device_array, dev);
-
-    g_free (index_str);
-    g_free (caps_str);
-    if (caps)
-      gst_caps_unref (caps);
-  }
-
-  g_list_free_full (devices, (GDestroyNotify) gst_object_unref);
-  gst_device_monitor_stop (monitor);
-  g_object_unref (monitor);
-
-  return device_array;
-}
-
-static gchar *
-normalize_mime (const gchar * gst_mime)
-{
-  if (g_str_has_prefix (gst_mime, "video/x-vp8"))
-    return g_strdup ("video/VP8");
-  if (g_str_has_prefix (gst_mime, "video/x-vp9"))
-    return g_strdup ("video/VP9");
-  if (g_str_has_prefix (gst_mime, "video/x-h264"))
-    return g_strdup ("video/H264");
-  if (g_str_has_prefix (gst_mime, "video/x-h265"))
-    return g_strdup ("video/H26");
-  if (g_str_has_prefix (gst_mime, "video/x-av1"))
-    return g_strdup ("video/AV1");
-  if (g_str_has_prefix (gst_mime, "audio/x-opus"))
-    return g_strdup ("audio/opus");
-  if (g_str_has_prefix (gst_mime, "audio/x-mulaw"))
-    return g_strdup ("audio/PCMU");
-  if (g_str_has_prefix (gst_mime, "audio/x-alaw"))
-    return g_strdup ("audio/PCMA");
-  if (g_str_has_prefix (gst_mime, "audio/G722"))
-    return g_strdup ("audio/G722");
-  return NULL;
-}
-
-static void
-copy_structure_to_json (const GstStructure * s, JsonObject * entry)
-{
-  int n_fields = gst_structure_n_fields (s);
-  for (int i = 0; i < n_fields; i++) {
-    const gchar *key = gst_structure_nth_field_name (s, i);
-    const GValue *val = gst_structure_get_value (s, key);
-
-    if (G_VALUE_HOLDS_INT (val)) {
-      json_object_set_int_member (entry, key, g_value_get_int (val));
-    } else if (G_VALUE_HOLDS_UINT (val)) {
-      json_object_set_int_member (entry, key, g_value_get_uint (val));
-    } else if (G_VALUE_HOLDS_DOUBLE (val)) {
-      json_object_set_double_member (entry, key, g_value_get_double (val));
-    } else if (G_VALUE_HOLDS_STRING (val)) {
-      json_object_set_string_member (entry, key, g_value_get_string (val));
-    } else if (G_VALUE_HOLDS_BOOLEAN (val)) {
-      json_object_set_boolean_member (entry, key, g_value_get_boolean (val));
-    } else {
-
-    }
-  }
-}
-
-static JsonObject *
-get_supported_codecs ()
-{
-  JsonObject *root = json_object_new ();
-  JsonArray *video_codecs = json_array_new ();
-  JsonArray *audio_codecs = json_array_new ();
-
-  GList *factories =
-      gst_element_factory_list_get_elements (GST_ELEMENT_FACTORY_TYPE_ENCODER,
-      GST_RANK_NONE);
-
-  for (GList * l = factories; l != NULL; l = l->next) {
-    GstElementFactory *factory = (GstElementFactory *) l->data;
-    const GList *templates =
-        gst_element_factory_get_static_pad_templates (factory);
-    for (const GList * t = templates; t != NULL; t = t->next) {
-      GstStaticPadTemplate *tpl = (GstStaticPadTemplate *) t->data;
-      if (tpl->direction != GST_PAD_SRC)
-        continue;
-
-      GstCaps *caps = gst_static_pad_template_get_caps (tpl);
-      guint caps_size = gst_caps_get_size (caps);
-      for (guint i = 0; i < caps_size; i++) {
-        GstStructure *s = gst_caps_get_structure (caps, i);
-        const gchar *raw_mime = gst_structure_get_name (s);
-        gchar *mime = normalize_mime (raw_mime);
-        if (!mime)
-          continue;
-
-        JsonObject *entry = json_object_new ();
-        json_object_set_string_member (entry, "mimeType", mime);
-
-        copy_structure_to_json (s, entry);
-
-        if (g_str_has_prefix (mime, "video/"))
-          json_array_add_object_element (video_codecs, entry);
-        else
-          json_array_add_object_element (audio_codecs, entry);
-
-        g_free (mime);
-      }
-      gst_caps_unref (caps);
-    }
-  }
-
-  g_list_free_full (factories, gst_object_unref);
-
-  json_object_set_array_member (root, "video", video_codecs);
-  json_object_set_array_member (root, "audio", audio_codecs);
-  return root;
-}
 
 /* One mega message handler for our asynchronous calling mechanism */
 static void
@@ -1021,69 +694,6 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
 
   object = json_node_get_object (root);
 
-  // if (json_object_has_member (object, "sdp")) {
-  //   int ret;
-  //   GstSDPMessage *sdp;
-  //   const gchar *text, *sdptype;
-  //   GstWebRTCSessionDescription *answer;
-
-  //   app_state = PEER_CALL_NEGOTIATING;
-
-  //   child = json_object_get_object_member (object, "sdp");
-
-  //   if (!json_object_has_member (child, "type")) {
-  //     cleanup_and_quit_loop ("ERROR: received SDP without 'type'",
-  //         PEER_CALL_ERROR);
-  //     goto out;
-  //   }
-
-  //   sdptype = json_object_get_string_member (child, "type");
-  //   /* In this example, we create the offer and receive one answer by default,
-  //    * but it's possible to comment out the offer creation and wait for an offer
-  //    * instead, so we handle either here.
-  //    *
-  //    * See tests/examples/webrtcbidirectional.c in gst-plugins-bad for another
-  //    * example how to handle offers from peers and reply with answers using webrtcbin. */
-  //   text = json_object_get_string_member (child, "sdp");
-  //   ret = gst_sdp_message_new (&sdp);
-  //   g_assert_cmphex (ret, ==, GST_SDP_OK);
-  //   ret = gst_sdp_message_parse_buffer ((guint8 *) text, strlen (text), sdp);
-  //   g_assert_cmphex (ret, ==, GST_SDP_OK);
-
-  //   if (g_str_equal (sdptype, "answer")) {
-  //     gst_print ("Received answer:\n%s\n", text);
-  //     answer = gst_webrtc_session_description_new (GST_WEBRTC_SDP_TYPE_ANSWER,
-  //         sdp);
-  //     g_assert_nonnull (answer);
-
-  //     /* Set remote description on our pipeline */
-  //     {
-  //       GstPromise *promise = gst_promise_new ();
-  //       g_signal_emit_by_name (webrtc1, "set-remote-description", answer,
-  //           promise);
-  //       gst_promise_interrupt (promise);
-  //       gst_promise_unref (promise);
-  //     }
-  //     app_state = PEER_CALL_STARTED;
-  //   } else {
-  //     gst_print ("Received offer:\n%s\n", text);
-  //     on_offer_received (sdp);
-  //   }
-
-  // } else if (json_object_has_member (object, "ice")) {
-  //   const gchar *candidate;
-  //   gint sdpmlineindex;
-
-  //   child = json_object_get_object_member (object, "ice");
-  //   candidate = json_object_get_string_member (child, "candidate");
-  //   sdpmlineindex = json_object_get_int_member (child, "sdpMLineIndex");
-
-  //   /* Add ice candidate sent by remote peer */
-  //   g_signal_emit_by_name (webrtc1, "add-ice-candidate", sdpmlineindex,
-  //       candidate);
-  // } else {
-  //   gst_printerr ("Ignoring unknown JSON message:\n%s\n", text);
-  // }
   /* Check type of JSON message */
   if (!json_object_has_member (object, "type")) {
     gst_printerr ("No 'type' field in message: '%s'\n", text);
@@ -1100,12 +710,10 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
 
   switch (type_value) {
     case SENDER_SESSION_ID_ISSUANCE:{
-      // sender_id = json_object_get_string_member (object, "sessionId");
-      // g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", sender_id);
-      if (!sender_id && json_object_has_member(object, "sessionId")) {
-        const gchar *tmp = json_object_get_string_member(object, "sessionId");
-        g_free(sender_id); // 前回の内容を解放しておく（任意）
-        sender_id = g_strdup(tmp); // コピー
+      if (!sender_id && json_object_has_member (object, "sessionId")) {
+        const gchar *tmp = json_object_get_string_member (object, "sessionId");
+        g_free (sender_id);
+        sender_id = g_strdup (tmp);
         g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", sender_id);
       }
       break;
@@ -1125,24 +733,26 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       break;
     }
     case SENDER_MEDIA_STREAM_START:{
-      if (!start_pipeline(TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT)) {
-        cleanup_and_quit_loop("ERROR: failed to start pipeline", PEER_CALL_ERROR);
+      if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT)) {
+        cleanup_and_quit_loop ("ERROR: failed to start pipeline",
+            PEER_CALL_ERROR);
       }
 
-      JsonObject *constraints = json_object_get_object_member(object, "constraints");
+      JsonObject *constraints =
+          json_object_get_object_member (object, "constraints");
 
-      JsonNode *node = json_node_new(JSON_NODE_OBJECT);
-      json_node_set_object(node, constraints);
-      
-      JsonGenerator *gen = json_generator_new();
-      json_generator_set_root(gen, node);
-      gchar *json_str = json_generator_to_data(gen, NULL);
-      
-      g_print("MEDIA_STREAM_START with constraints: %s\n", json_str);
-      
-      g_free(json_str);
-      g_object_unref(gen);
-      json_node_free(node);
+      JsonNode *node = json_node_new (JSON_NODE_OBJECT);
+      json_node_set_object (node, constraints);
+
+      JsonGenerator *gen = json_generator_new ();
+      json_generator_set_root (gen, node);
+      gchar *json_str = json_generator_to_data (gen, NULL);
+
+      g_print ("MEDIA_STREAM_START with constraints: %s\n", json_str);
+
+      g_free (json_str);
+      g_object_unref (gen);
+      json_node_free (node);
       break;
     }
     case SENDER_SDP_ANSWER:{
