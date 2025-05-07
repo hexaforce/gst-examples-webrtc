@@ -50,6 +50,22 @@ on_server_message (SoupWebsocketConnection * conn,
     ws2Id = g_strdup (json_object_get_string_member (object, "ws2Id"));
 
   switch (type_value) {
+    case SENDER_SESSION_ID_ISSUANCE:{
+      if (!ws1Id && json_object_has_member (object, "sessionId")) {
+        ws1Id = g_strdup (json_object_get_string_member (object, "sessionId"));
+      }
+      break;
+    }
+    case SENDER_MEDIA_DEVICE_LIST_REQUEST:{
+      JsonObject *payload = json_object_new ();
+      json_object_set_string_member (payload, "source", "gstreamer");
+      json_object_set_array_member (payload, "devices", get_media_devices ());
+      json_object_set_object_member (payload, "codecs",
+          get_supported_codecs ());
+      ws_send (ws_conn, RECEIVER_MEDIA_DEVICE_LIST_RESPONSE, ws1Id, ws2Id,
+          payload);
+      break;
+    }
     case SENDER_MEDIA_STREAM_START:{
       if (!start_pipeline (RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT)) {
         cleanup_and_quit_loop ("Failed to start pipeline", PEER_CALL_ERROR);
@@ -85,6 +101,7 @@ on_server_message (SoupWebsocketConnection * conn,
       g_signal_emit_by_name (webrtc1, "add-ice-candidate", mline, cand_str);
       break;
     }
+    case SENDER_SYSTEM_ERROR:
     default:
       g_print ("Unhandled message type: %d\n", type_value);
   }

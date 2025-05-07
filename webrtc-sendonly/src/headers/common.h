@@ -29,12 +29,19 @@ typedef enum AppState
 
 extern GObject *send_channel;
 
-// WebRTC signaling message types
-#define SENDER_MEDIA_STREAM_START 100
-#define SENDER_SDP_ANSWER         101
-#define SENDER_ICE                102
-#define RECEIVER_SDP_OFFER        201
-#define RECEIVER_ICE              202
+#define SENDER_SESSION_ID_ISSUANCE        0
+#define SENDER_MEDIA_DEVICE_LIST_REQUEST  1
+#define SENDER_MEDIA_STREAM_START         2
+#define SENDER_SDP_ANSWER                 3
+#define SENDER_ICE                        4
+#define SENDER_SYSTEM_ERROR               9
+
+#define RECEIVER_SESSION_ID_ISSUANCE           0
+#define RECEIVER_CHANGE_SENDER_ENTRIES         1
+#define RECEIVER_MEDIA_DEVICE_LIST_RESPONSE    2
+#define RECEIVER_SDP_OFFER                     3
+#define RECEIVER_ICE                           4
+#define RECEIVER_SYSTEM_ERROR                  9
 
 #define RTP_OPUS_DEFAULT_PT 97
 #define RTP_VP8_DEFAULT_PT  96
