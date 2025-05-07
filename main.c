@@ -117,14 +117,8 @@ send_ice_candidate_message (GstElement * webrtc G_GNUC_UNUSED, guint mlineindex,
   json_object_set_int_member (ice, "sdpMLineIndex", mlineindex);
   msg = json_object_new ();
   json_object_set_object_member (msg, "candidate", ice);
-  // text = get_string_from_json_object (msg);
-  // soup_websocket_connection_send_text (ws_conn, text);
-  gst_print ("========== ws1Id = %s\n", ws1Id);
-  gst_print ("========== ws2Id = %s\n", ws2Id);
   ws_send (ws_conn, RECEIVER_ICE, ws1Id, ws2Id, msg);
   json_object_unref (msg);
-
-  // g_free (text);
 }
 
 static void
@@ -142,32 +136,10 @@ send_sdp_to_peer (GstWebRTCSessionDescription * desc)
 
   sdp = json_object_new ();
   json_object_set_string_member (sdp, "type", "offer");
-
   sdp_text = gst_sdp_message_as_text (desc->sdp);
-
-  // if (desc->type == GST_WEBRTC_SDP_TYPE_OFFER) {
-  // gst_print ("Sending offer:\n%s\n", text);
-  // } else if (desc->type == GST_WEBRTC_SDP_TYPE_ANSWER) {
-  //   gst_print ("Sending answer:\n%s\n", text);
-  //   json_object_set_string_member (sdp, "type", "answer");
-  // } else {
-  //   g_assert_not_reached ();
-  // }
-
   json_object_set_string_member (sdp, "sdp", sdp_text);
-  // g_free (text);
-
-  // msg = json_object_new ();
-  // json_object_set_object_member (msg, "sdp", sdp);
-  // text = get_string_from_json_object (msg);
-
-
-  // soup_websocket_connection_send_text (ws_conn, text);
-  gst_print ("========== ws1Id = %s\n", ws1Id);
-  gst_print ("========== ws2Id = %s\n", ws2Id);
   ws_send (ws_conn, RECEIVER_SDP_OFFER, ws1Id, ws2Id, sdp);
   json_object_unref (msg);
-  // g_free (text);
 }
 
  /* Offer created by our pipeline, to be sent to the peer */
