@@ -8,7 +8,7 @@ struct _CustomICEAgent
 };
 
 /* *INDENT-OFF* */
-G_DEFINE_TYPE (CustomICEAgent, customice_agent, GST_TYPE_WEBRTC_ICE)
+G_DEFINE_TYPE(CustomICEAgent, customice_agent, GST_TYPE_WEBRTC_ICE)
 /* *INDENT-ON* */
 
 GstWebRTCICEStream *
@@ -19,8 +19,8 @@ customice_agent_add_stream (GstWebRTCICE * ice, guint session_id)
 }
 
 GstWebRTCICETransport *
-customice_agent_find_transport (GstWebRTCICE * ice,
-    GstWebRTCICEStream * stream, GstWebRTCICEComponent component)
+customice_agent_find_transport (GstWebRTCICE * ice, GstWebRTCICEStream * stream,
+    GstWebRTCICEComponent component)
 {
   GstWebRTCICE *c_ice = GST_WEBRTC_ICE (CUSTOMICE_AGENT (ice)->nice_agent);
   return gst_webrtc_ice_find_transport (c_ice, stream, component);

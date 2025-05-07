@@ -3,8 +3,8 @@
 
 #include <gst/gst.h>
 #include <gst/webrtc/webrtc.h>
-#include <libsoup/soup.h>
 #include <json-glib/json-glib.h>
+#include <libsoup/soup.h>
 
 typedef enum AppState
 {
@@ -26,7 +26,9 @@ typedef enum AppState
   PEER_CALL_STOPPED,
   PEER_CALL_ERROR,
 } AppState;
+
 extern GObject *send_channel;
+
 // WebRTC signaling message types
 #define SENDER_MEDIA_STREAM_START 100
 #define SENDER_SDP_ANSWER         101
@@ -35,7 +37,7 @@ extern GObject *send_channel;
 #define RECEIVER_ICE              202
 
 #define RTP_OPUS_DEFAULT_PT 97
-#define RTP_VP8_DEFAULT_PT 96
+#define RTP_VP8_DEFAULT_PT  96
 
 // External globals
 extern GMainLoop *loop;

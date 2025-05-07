@@ -1,7 +1,7 @@
 #include "headers/common.h"
+#include "headers/pipeline.h"
 #include "headers/utils.h"
 #include "headers/webrtc.h"
-#include "headers/pipeline.h"
 
 gboolean
 register_with_server (void)
@@ -18,8 +18,8 @@ on_server_closed (SoupWebsocketConnection * conn, gpointer user_data)
 }
 
 void
-on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
-    GBytes * message, gpointer user_data)
+on_server_message (SoupWebsocketConnection * conn,
+    SoupWebsocketDataType type, GBytes * message, gpointer user_data)
 {
   gsize size;
   const gchar *data = g_bytes_get_data (message, &size);

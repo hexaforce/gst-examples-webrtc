@@ -32,8 +32,16 @@ check_plugins (void)
   gboolean ret;
   GstPlugin *plugin;
   GstRegistry *registry;
-  const gchar *needed[] = { "opus", "vpx", "nice", "webrtc", "dtls", "srtp",
-    "rtpmanager", "videotestsrc", "audiotestsrc", NULL
+  const gchar *needed[] = { 
+    "opus", 
+    "vpx", 
+    "nice", 
+    "webrtc",
+    "dtls", 
+    "srtp", 
+    "rtpmanager", 
+    "videotestsrc",
+    "audiotestsrc", NULL
   };
 
   registry = gst_registry_get ();
@@ -54,7 +62,6 @@ void
 ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
     const gchar * ws2Id, JsonObject * data)
 {
-
 
   JsonObject *msg = json_object_new ();
 
@@ -175,7 +182,6 @@ copy_structure_to_json (const GstStructure * s, JsonObject * entry)
     } else if (G_VALUE_HOLDS_BOOLEAN (val)) {
       json_object_set_boolean_member (entry, key, g_value_get_boolean (val));
     } else {
-
     }
   }
 }

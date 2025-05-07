@@ -1,13 +1,13 @@
-#include "headers/common.h"
 #include "headers/pipeline.h"
-#include "headers/webrtc.h"
-#include "headers/data_channel.h"
+#include "headers/common.h"
 #include "headers/custom_agent.h"
+#include "headers/data_channel.h"
+#include "headers/webrtc.h"
 #include <gst/rtp/rtp.h>
 
-
 #define STUN_SERVER "stun://stun.l.google.com:19302"
-#define RTP_TWCC_URI "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01"
+#define RTP_TWCC_URI                                                           \
+  "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01"
 
 static void
 on_offer_created (GstPromise * promise, gpointer user_data)
@@ -45,7 +45,8 @@ start_pipeline (guint opus_pt, guint vp8_pt)
   gchar *audio_desc =
       g_strdup_printf
       ("audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample "
-      "! queue ! opusenc ! rtpopuspay name=audiopay pt=%u", opus_pt);
+      "! queue ! opusenc ! rtpopuspay name=audiopay pt=%u",
+      opus_pt);
   GstElement *audio_bin =
       gst_parse_bin_from_description (audio_desc, TRUE, NULL);
   g_free (audio_desc);
@@ -54,7 +55,8 @@ start_pipeline (guint opus_pt, guint vp8_pt)
   gchar *video_desc =
       g_strdup_printf
       ("videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! "
-      "vp8enc deadline=1 keyframe-max-dist=2000 ! rtpvp8pay name=videopay pt=%u",
+      "vp8enc deadline=1 keyframe-max-dist=2000 ! rtpvp8pay name=videopay "
+      "pt=%u",
       vp8_pt);
   GstElement *video_bin =
       gst_parse_bin_from_description (video_desc, TRUE, NULL);
