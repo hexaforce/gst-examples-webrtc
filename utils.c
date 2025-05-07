@@ -29,6 +29,8 @@ void
 ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
     const gchar * ws2Id, JsonObject * data)
 {
+
+
   JsonObject *msg = json_object_new ();
 
   json_object_set_int_member (msg, "type", type);
