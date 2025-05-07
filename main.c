@@ -1100,8 +1100,14 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
 
   switch (type_value) {
     case SENDER_SESSION_ID_ISSUANCE:{
-      sender_id = json_object_get_string_member (object, "sessionId");
-      g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", sender_id);
+      // sender_id = json_object_get_string_member (object, "sessionId");
+      // g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", sender_id);
+      if (!sender_id && json_object_has_member(object, "sessionId")) {
+        const gchar *tmp = json_object_get_string_member(object, "sessionId");
+        g_free(sender_id); // 前回の内容を解放しておく（任意）
+        sender_id = g_strdup(tmp); // コピー
+        g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", sender_id);
+      }
       break;
     }
     case SENDER_MEDIA_DEVICE_LIST_REQUEST:{
@@ -1122,7 +1128,7 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       if (!start_pipeline(TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT)) {
         cleanup_and_quit_loop("ERROR: failed to start pipeline", PEER_CALL_ERROR);
       }
-      
+
       JsonObject *constraints = json_object_get_object_member(object, "constraints");
 
       JsonNode *node = json_node_new(JSON_NODE_OBJECT);
