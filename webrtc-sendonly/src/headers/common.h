@@ -49,8 +49,13 @@ extern const gchar *server_url;
 
 // Declarations
 gboolean cleanup_and_quit_loop (const gchar * msg, AppState state);
+
 void send_ice_candidate (GstElement * webrtc, guint mlineindex,
     gchar * candidate, gpointer user_data);
+
 void send_sdp_offer (GstWebRTCSessionDescription * desc);
+
+void ws_send (SoupWebsocketConnection * conn, int type, const gchar * ws1Id,
+    const gchar * ws2Id, JsonObject * data);
 
 #endif

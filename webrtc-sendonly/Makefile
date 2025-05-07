@@ -7,7 +7,14 @@ CFLAGS = -DGST_USE_UNSTABLE_API \
   `pkg-config --cflags gstreamer-1.0 gstreamer-webrtc-1.0 libsoup-3.0 json-glib-1.0 nice` \
   -Isrc/headers
 
-LIBS = `pkg-config --libs gstreamer-1.0 gstreamer-webrtc-1.0 libsoup-3.0 json-glib-1.0 nice`
+LIBS = `pkg-config --libs \
+  gstreamer-1.0 \
+  gstreamer-webrtc-1.0 \
+  gstreamer-rtp-1.0 \
+  gstreamer-webrtc-nice-1.0 \
+  libsoup-3.0 \
+  json-glib-1.0 \
+  nice`
 
 SRC = \
   src/main.c \
