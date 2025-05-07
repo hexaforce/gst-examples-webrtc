@@ -66,7 +66,6 @@ static GObject *send_channel, *receive_channel;
 
 static SoupWebsocketConnection *ws_conn = NULL;
 static enum AppState app_state = 0;
-static gchar *sender_id = NULL;
 static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
 
 static gchar *ws1Id = NULL;
@@ -689,7 +688,6 @@ connect_to_websocket_server_async (void)
   SoupLogger *logger;
   SoupMessage *message;
   SoupSession *session;
-  const char *https_aliases[] = { "wss", NULL };
 
   session = soup_session_new_with_options (
       // "ssl-strict", !disable_ssl,
