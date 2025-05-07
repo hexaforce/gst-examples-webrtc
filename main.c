@@ -262,11 +262,9 @@ on_negotiation_needed (GstElement * element, gpointer user_data)
   gboolean create_offer = GPOINTER_TO_INT (user_data);
   app_state = PEER_CALL_NEGOTIATING;
 
-  if (create_offer) {
-    GstPromise *promise =
-        gst_promise_new_with_change_func (on_offer_created, NULL, NULL);
-    g_signal_emit_by_name (webrtc1, "create-offer", NULL, promise);
-  }
+  GstPromise *promise =
+      gst_promise_new_with_change_func (on_offer_created, NULL, NULL);
+  g_signal_emit_by_name (webrtc1, "create-offer", NULL, promise);
 }
 
 static void
@@ -503,34 +501,26 @@ start_pipeline (gboolean create_offer, guint opus_pt, guint vp8_pt)
     gst_printerr ("Failed to link video_bin \n");
   }
 
-  if (!create_offer) {
-    /* XXX: this will fail when the remote offers twcc as the extension id
-     * cannot currently be negotiated when receiving an offer.
-     */
-    GST_FIXME ("Need to implement header extension negotiation when "
-        "reciving a remote offers");
-  } else {
-    GstElement *videopay, *audiopay;
-    GstRTPHeaderExtension *video_twcc, *audio_twcc;
+  GstElement *videopay, *audiopay;
+  GstRTPHeaderExtension *video_twcc, *audio_twcc;
 
-    videopay = gst_bin_get_by_name (GST_BIN (pipe1), "videopay");
-    g_assert_nonnull (videopay);
-    video_twcc = gst_rtp_header_extension_create_from_uri (RTP_TWCC_URI);
-    g_assert_nonnull (video_twcc);
-    gst_rtp_header_extension_set_id (video_twcc, 1);
-    g_signal_emit_by_name (videopay, "add-extension", video_twcc);
-    g_clear_object (&video_twcc);
-    g_clear_object (&videopay);
+  videopay = gst_bin_get_by_name (GST_BIN (pipe1), "videopay");
+  g_assert_nonnull (videopay);
+  video_twcc = gst_rtp_header_extension_create_from_uri (RTP_TWCC_URI);
+  g_assert_nonnull (video_twcc);
+  gst_rtp_header_extension_set_id (video_twcc, 1);
+  g_signal_emit_by_name (videopay, "add-extension", video_twcc);
+  g_clear_object (&video_twcc);
+  g_clear_object (&videopay);
 
-    audiopay = gst_bin_get_by_name (GST_BIN (pipe1), "audiopay");
-    g_assert_nonnull (audiopay);
-    audio_twcc = gst_rtp_header_extension_create_from_uri (RTP_TWCC_URI);
-    g_assert_nonnull (audio_twcc);
-    gst_rtp_header_extension_set_id (audio_twcc, 1);
-    g_signal_emit_by_name (audiopay, "add-extension", audio_twcc);
-    g_clear_object (&audio_twcc);
-    g_clear_object (&audiopay);
-  }
+  audiopay = gst_bin_get_by_name (GST_BIN (pipe1), "audiopay");
+  g_assert_nonnull (audiopay);
+  audio_twcc = gst_rtp_header_extension_create_from_uri (RTP_TWCC_URI);
+  g_assert_nonnull (audio_twcc);
+  gst_rtp_header_extension_set_id (audio_twcc, 1);
+  g_signal_emit_by_name (audiopay, "add-extension", audio_twcc);
+  g_clear_object (&audio_twcc);
+  g_clear_object (&audiopay);
 
   /* This is the gstwebrtc entry point where we create the offer and so on. It
    * will be called when the pipeline goes to PLAYING. */
@@ -615,7 +605,7 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       const gchar *data = g_bytes_get_data (message, &size);
       text = g_strndup (data, size);
       g_print ("[WebSocket TEXT Message] Size: %lu, Content: %.*s\n",
-        (unsigned long) size, (int) size, data);
+          (unsigned long) size, (int) size, data);
       break;
     }
     default:
