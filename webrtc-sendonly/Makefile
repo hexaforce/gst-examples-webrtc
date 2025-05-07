@@ -1,6 +1,6 @@
 .PHONY: all fmt clean
 
-all: clean main
+all: clean vtx
 
 CC = gcc
 CFLAGS = `pkg-config --cflags gstreamer-1.0 gstreamer-webrtc-1.0 libsoup-3.0 json-glib-1.0` -Iheaders
@@ -10,7 +10,7 @@ SRC = src/main.c src/signaling.c src/pipeline.c src/webrtc.c src/data_channel.c 
 OBJ = $(SRC:.c=.o)
 HEADERS = $(wildcard src/headers/*.h)
 
-main: $(OBJ)
+vtx: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LIBS)
 
 %.o: %.c $(HEADERS)
@@ -20,5 +20,5 @@ fmt:
 	find . \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 gst-indent-1.0
 
 clean:
-	rm -f $(OBJ) main
-	rm -f *~
+	rm -f $(OBJ) vtx
+	find . \( -name '*~' \) -delete

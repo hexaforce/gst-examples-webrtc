@@ -6,3 +6,4 @@ webrtc-soup
 *.o
 main
 ca-cert.pem
+vtx
