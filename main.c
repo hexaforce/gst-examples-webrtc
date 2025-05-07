@@ -67,8 +67,10 @@ static GObject *send_channel, *receive_channel;
 static SoupWebsocketConnection *ws_conn = NULL;
 static enum AppState app_state = 0;
 static gchar *sender_id = NULL;
-static gchar *our_id = NULL;
 static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
+
+static gchar *ws1Id = NULL;
+static gchar *ws2Id = NULL;
 
 static gboolean
 cleanup_and_quit_loop (const gchar * msg, enum AppState state)
@@ -97,73 +99,6 @@ cleanup_and_quit_loop (const gchar * msg, enum AppState state)
 }
 
 static void
-handle_media_stream (GstPad * pad, GstElement * pipe, const char *convert_name,
-    const char *sink_name)
-{
-  GstPad *qpad;
-  GstElement *q, *conv, *resample, *sink;
-  GstPadLinkReturn ret;
-
-  gst_println ("Trying to handle stream with %s ! %s", convert_name, sink_name);
-
-  q = gst_element_factory_make ("queue", NULL);
-  g_assert_nonnull (q);
-  conv = gst_element_factory_make (convert_name, NULL);
-  g_assert_nonnull (conv);
-  sink = gst_element_factory_make (sink_name, NULL);
-  g_assert_nonnull (sink);
-
-  if (g_strcmp0 (convert_name, "audioconvert") == 0) {
-    /* Might also need to resample, so add it just in case.
-     * Will be a no-op if it's not required. */
-    resample = gst_element_factory_make ("audioresample", NULL);
-    g_assert_nonnull (resample);
-    gst_bin_add_many (GST_BIN (pipe), q, conv, resample, sink, NULL);
-    gst_element_sync_state_with_parent (q);
-    gst_element_sync_state_with_parent (conv);
-    gst_element_sync_state_with_parent (resample);
-    gst_element_sync_state_with_parent (sink);
-    gst_element_link_many (q, conv, resample, sink, NULL);
-  } else {
-    gst_bin_add_many (GST_BIN (pipe), q, conv, sink, NULL);
-    gst_element_sync_state_with_parent (q);
-    gst_element_sync_state_with_parent (conv);
-    gst_element_sync_state_with_parent (sink);
-    gst_element_link_many (q, conv, sink, NULL);
-  }
-
-  qpad = gst_element_get_static_pad (q, "sink");
-
-  ret = gst_pad_link (pad, qpad);
-  g_assert_cmphex (ret, ==, GST_PAD_LINK_OK);
-}
-
-static void
-on_incoming_decodebin_stream (GstElement * decodebin, GstPad * pad,
-    GstElement * pipe)
-{
-  GstCaps *caps;
-  const gchar *name;
-
-  if (!gst_pad_has_current_caps (pad)) {
-    gst_printerr ("Pad '%s' has no caps, can't do anything, ignoring\n",
-        GST_PAD_NAME (pad));
-    return;
-  }
-
-  caps = gst_pad_get_current_caps (pad);
-  name = gst_structure_get_name (gst_caps_get_structure (caps, 0));
-
-  if (g_str_has_prefix (name, "video")) {
-    handle_media_stream (pad, pipe, "videoconvert", "autovideosink");
-  } else if (g_str_has_prefix (name, "audio")) {
-    handle_media_stream (pad, pipe, "audioconvert", "autoaudiosink");
-  } else {
-    gst_printerr ("Unknown pad %s, ignoring", GST_PAD_NAME (pad));
-  }
-}
-
-static void
 send_ice_candidate_message (GstElement * webrtc G_GNUC_UNUSED, guint mlineindex,
     gchar * candidate, gpointer user_data G_GNUC_UNUSED)
 {
@@ -183,7 +118,9 @@ send_ice_candidate_message (GstElement * webrtc G_GNUC_UNUSED, guint mlineindex,
   text = get_string_from_json_object (msg);
   json_object_unref (msg);
 
-  soup_websocket_connection_send_text (ws_conn, text);
+  // soup_websocket_connection_send_text (ws_conn, text);
+  ws_send (ws_conn, RECEIVER_ICE, ws1Id, ws2Id, text);
+
   g_free (text);
 }
 
@@ -202,15 +139,15 @@ send_sdp_to_peer (GstWebRTCSessionDescription * desc)
   text = gst_sdp_message_as_text (desc->sdp);
   sdp = json_object_new ();
 
-  if (desc->type == GST_WEBRTC_SDP_TYPE_OFFER) {
-    gst_print ("Sending offer:\n%s\n", text);
-    json_object_set_string_member (sdp, "type", "offer");
-  } else if (desc->type == GST_WEBRTC_SDP_TYPE_ANSWER) {
-    gst_print ("Sending answer:\n%s\n", text);
-    json_object_set_string_member (sdp, "type", "answer");
-  } else {
-    g_assert_not_reached ();
-  }
+  // if (desc->type == GST_WEBRTC_SDP_TYPE_OFFER) {
+  // gst_print ("Sending offer:\n%s\n", text);
+  json_object_set_string_member (sdp, "type", "offer");
+  // } else if (desc->type == GST_WEBRTC_SDP_TYPE_ANSWER) {
+  //   gst_print ("Sending answer:\n%s\n", text);
+  //   json_object_set_string_member (sdp, "type", "answer");
+  // } else {
+  //   g_assert_not_reached ();
+  // }
 
   json_object_set_string_member (sdp, "sdp", text);
   g_free (text);
@@ -220,7 +157,10 @@ send_sdp_to_peer (GstWebRTCSessionDescription * desc)
   text = get_string_from_json_object (msg);
   json_object_unref (msg);
 
-  soup_websocket_connection_send_text (ws_conn, text);
+  // soup_websocket_connection_send_text (ws_conn, text);
+
+  ws_send (ws_conn, RECEIVER_SDP_OFFER, ws1Id, ws2Id, text);
+
   g_free (text);
 }
 
@@ -472,11 +412,7 @@ start_pipeline (guint opus_pt, guint vp8_pt)
     g_error_free (video_error);
     goto err;
   }
-  // if (custom_ice) {
-  //   custom_agent = GST_WEBRTC_ICE (customice_agent_new ("custom"));
-  //   webrtc1 = gst_element_factory_make_full ("webrtcbin", "name", "sendrecv",
-  //       "stun-server", STUN_SERVER, "ice-agent", custom_agent, NULL);
-  // }
+
   webrtc1 = gst_element_factory_make_full ("webrtcbin", "name", "sendrecv",
       "stun-server", STUN_SERVER, NULL);
 
@@ -631,18 +567,20 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
 
   gint type_value = json_object_get_int_member (object, "type");
 
-  const gchar *ws1Id = json_object_has_member (object, "ws1Id") ?
-      json_object_get_string_member (object, "ws1Id") : NULL;
-  const gchar *ws2Id = json_object_has_member (object, "ws2Id") ?
-      json_object_get_string_member (object, "ws2Id") : NULL;
+  if (json_object_has_member (object, "ws1Id")) {
+    ws1Id = json_object_get_string_member (object, "ws1Id");
+  }
+
+  if (json_object_has_member (object, "ws2Id")) {
+    ws2Id = json_object_get_string_member (object, "ws2Id");
+  }
 
   switch (type_value) {
     case SENDER_SESSION_ID_ISSUANCE:{
-      if (!sender_id && json_object_has_member (object, "sessionId")) {
-        const gchar *tmp = json_object_get_string_member (object, "sessionId");
-        g_free (sender_id);
-        sender_id = g_strdup (tmp);
-        g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", sender_id);
+      if (!ws1Id && json_object_has_member (object, "sessionId")) {
+        g_free (ws1Id);
+        ws1Id = json_object_get_string_member (object, "sessionId");
+        g_print ("SESSION_ID_ISSUANCE: sender_id = %s\n", ws1Id);
       }
       break;
     }
@@ -672,7 +610,38 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       JsonObject *answer = json_object_get_object_member (object, "answer");
       const gchar *sdp = json_object_get_string_member (answer, "sdp");
       g_print ("SDP_ANSWER: %s\n", sdp);
-      // TODO: sdp を RemoteDescription に設定
+// /* Answer created by our pipeline, to be sent to the peer */
+// static void
+// on_answer_created (GstPromise * promise, gpointer user_data)
+// {
+//   GstWebRTCSessionDescription *answer = NULL;
+//   const GstStructure *reply;
+
+//   g_assert_cmphex (app_state, ==, PEER_CALL_NEGOTIATING);
+
+//   g_assert_cmphex (gst_promise_wait (promise), ==, GST_PROMISE_RESULT_REPLIED);
+//   reply = gst_promise_get_reply (promise);
+//   gst_structure_get (reply, "answer",
+//       GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, NULL);
+//   gst_promise_unref (promise);
+
+//   promise = gst_promise_new ();
+//   g_signal_emit_by_name (webrtc1, "set-local-description", answer, promise);
+//   gst_promise_interrupt (promise);
+//   gst_promise_unref (promise);
+
+//   /* Send answer to peer */
+//   send_sdp_to_peer (answer);
+//   gst_webrtc_session_description_free (answer);
+// }
+
+// static void
+// on_offer_set (GstPromise * promise, gpointer user_data)
+// {
+//   gst_promise_unref (promise);
+//   promise = gst_promise_new_with_change_func (on_answer_created, NULL, NULL);
+//   g_signal_emit_by_name (webrtc1, "create-answer", NULL, promise);
+// }
       break;
     }
     case SENDER_ICE:{
