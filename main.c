@@ -69,11 +69,11 @@ static enum AppState app_state = 0;
 static gchar *sender_id = NULL;
 static gchar *our_id = NULL;
 static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
-static gboolean custom_ice = FALSE;
+// static gboolean custom_ice = FALSE;
 
 static GOptionEntry entries[] = {
-  {"custom-ice", 0, 0, G_OPTION_ARG_NONE, &custom_ice,
-      "Use a custom ice agent", NULL},
+  // {"custom-ice", 0, 0, G_OPTION_ARG_NONE, &custom_ice,
+  //     "Use a custom ice agent", NULL},
   {NULL},
 };
 
@@ -483,14 +483,14 @@ start_pipeline (gboolean create_offer, guint opus_pt, guint vp8_pt)
     goto err;
   }
 
-  if (custom_ice) {
-    custom_agent = GST_WEBRTC_ICE (customice_agent_new ("custom"));
-    webrtc1 = gst_element_factory_make_full ("webrtcbin", "name", "sendrecv",
-        "stun-server", STUN_SERVER, "ice-agent", custom_agent, NULL);
-  } else {
-    webrtc1 = gst_element_factory_make_full ("webrtcbin", "name", "sendrecv",
-        "stun-server", STUN_SERVER, NULL);
-  }
+  // if (custom_ice) {
+  //   custom_agent = GST_WEBRTC_ICE (customice_agent_new ("custom"));
+  //   webrtc1 = gst_element_factory_make_full ("webrtcbin", "name", "sendrecv",
+  //       "stun-server", STUN_SERVER, "ice-agent", custom_agent, NULL);
+  // }
+  webrtc1 = gst_element_factory_make_full ("webrtcbin", "name", "sendrecv",
+      "stun-server", STUN_SERVER, NULL);
+
   g_assert_nonnull (webrtc1);
   gst_util_set_object_arg (G_OBJECT (webrtc1), "bundle-policy", "max-bundle");
 
@@ -606,7 +606,7 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
     GBytes * message, gpointer user_data)
 {
 
-  JsonObject *object = get_json_object_from_string(type, message);
+  JsonObject *object = get_json_object_from_string (type, message);
   if (!object) {
     return;
   }
