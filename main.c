@@ -69,13 +69,6 @@ static enum AppState app_state = 0;
 static gchar *sender_id = NULL;
 static gchar *our_id = NULL;
 static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
-// static gboolean custom_ice = FALSE;
-
-static GOptionEntry entries[] = {
-  // {"custom-ice", 0, 0, G_OPTION_ARG_NONE, &custom_ice,
-  //     "Use a custom ice agent", NULL},
-  {NULL},
-};
 
 static gboolean
 cleanup_and_quit_loop (const gchar * msg, enum AppState state)
@@ -257,9 +250,8 @@ on_offer_created (GstPromise * promise, gpointer user_data)
 }
 
 static void
-on_negotiation_needed (GstElement * element, gpointer user_data)
+on_negotiation_needed (GstElement * element)
 {
-  gboolean create_offer = GPOINTER_TO_INT (user_data);
   app_state = PEER_CALL_NEGOTIATING;
 
   GstPromise *promise =
@@ -438,7 +430,7 @@ bus_watch_cb (GstBus * bus, GstMessage * message, gpointer user_data)
 #define RTP_VP8_DEFAULT_PT 96
 
 static gboolean
-start_pipeline (gboolean create_offer, guint opus_pt, guint vp8_pt)
+start_pipeline (guint opus_pt, guint vp8_pt)
 {
   GstBus *bus;
   char *audio_desc, *video_desc;
@@ -525,7 +517,7 @@ start_pipeline (gboolean create_offer, guint opus_pt, guint vp8_pt)
   /* This is the gstwebrtc entry point where we create the offer and so on. It
    * will be called when the pipeline goes to PLAYING. */
   g_signal_connect (webrtc1, "on-negotiation-needed",
-      G_CALLBACK (on_negotiation_needed), GINT_TO_POINTER (create_offer));
+      G_CALLBACK (on_negotiation_needed), NULL);
   /* We need to transmit this ICE candidate to the browser via the websockets
    * signalling server. Incoming ice candidates from the browser need to be
    * added by us too, see on_server_message() */
@@ -669,7 +661,7 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       break;
     }
     case SENDER_MEDIA_STREAM_START:{
-      if (!start_pipeline (TRUE, RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT)) {
+      if (!start_pipeline (RTP_OPUS_DEFAULT_PT, RTP_VP8_DEFAULT_PT)) {
         cleanup_and_quit_loop ("ERROR: failed to start pipeline",
             PEER_CALL_ERROR);
       }
@@ -786,7 +778,7 @@ gst_main (int argc, char *argv[])
   int ret_code = -1;
 
   context = g_option_context_new ("- gstreamer webrtc sendrecv demo");
-  g_option_context_add_main_entries (context, entries, NULL);
+
   g_option_context_add_group (context, gst_init_get_option_group ());
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
     gst_printerr ("Error initializing: %s\n", error->message);
