@@ -10,7 +10,7 @@ SRC = src/main.c src/signaling.c src/pipeline.c src/webrtc.c src/data_channel.c 
 OBJ = $(SRC:.c=.o)
 HEADERS = $(wildcard src/headers/*.h)
 
-webrtc-sendonly: $(OBJ)
+main: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LIBS)
 
 %.o: %.c $(HEADERS)
@@ -20,5 +20,5 @@ fmt:
 	find . \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 gst-indent-1.0
 
 clean:
-	rm -f $(OBJ) webrtc-sendonly
-
+	rm -f $(OBJ) main
+	rm -f *~

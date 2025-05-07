@@ -3,5 +3,6 @@ webrtc-recvonly-h264
 webrtc-sendrecv
 webrtc-soup
 *.dSYM/
+*.o
 main
 ca-cert.pem
