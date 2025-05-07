@@ -69,20 +69,9 @@ static enum AppState app_state = 0;
 static gchar *sender_id = NULL;
 static gchar *our_id = NULL;
 static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
-// static gboolean disable_ssl = TRUE;
-static gboolean remote_is_offerer = FALSE;
 static gboolean custom_ice = FALSE;
 
 static GOptionEntry entries[] = {
-  // {"peer-id", 0, 0, G_OPTION_ARG_STRING, &sender_id,
-  //     "String ID of the peer to connect to", "ID"},
-  // {"our-id", 0, 0, G_OPTION_ARG_STRING, &our_id,
-  //     "String ID that the peer can use to connect to us", "ID"},
-  // {"server", 0, 0, G_OPTION_ARG_STRING, &server_url,
-  //     "Signalling server to connect to", "URL"},
-  // {"disable-ssl", 0, 0, G_OPTION_ARG_NONE, &disable_ssl, "Disable ssl", NULL},
-  {"remote-offerer", 0, 0, G_OPTION_ARG_NONE, &remote_is_offerer,
-      "Request that the peer generate the offer and we'll answer", NULL},
   {"custom-ice", 0, 0, G_OPTION_ARG_NONE, &custom_ice,
       "Use a custom ice agent", NULL},
   {NULL},
@@ -273,9 +262,7 @@ on_negotiation_needed (GstElement * element, gpointer user_data)
   gboolean create_offer = GPOINTER_TO_INT (user_data);
   app_state = PEER_CALL_NEGOTIATING;
 
-  if (remote_is_offerer) {
-    soup_websocket_connection_send_text (ws_conn, "OFFER_REQUEST");
-  } else if (create_offer) {
+  if (create_offer) {
     GstPromise *promise =
         gst_promise_new_with_change_func (on_offer_created, NULL, NULL);
     g_signal_emit_by_name (webrtc1, "create-offer", NULL, promise);
