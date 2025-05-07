@@ -43,6 +43,9 @@ vtx: $(OBJ)
 fmt:
 	find . \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 gst-indent-1.0
 
+fmt2:
+	find . -name '*.h' -o -name '*.c' | xargs clang-format -i
+
 clean:
 	rm -f $(OBJ) vtx
 	find . \( -name '*~' \) -delete
