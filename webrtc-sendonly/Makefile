@@ -3,10 +3,21 @@
 all: clean vtx
 
 CC = gcc
-CFLAGS = `pkg-config --cflags gstreamer-1.0 gstreamer-webrtc-1.0 libsoup-3.0 json-glib-1.0` -Iheaders
-LIBS = `pkg-config --libs gstreamer-1.0 gstreamer-webrtc-1.0 libsoup-3.0 json-glib-1.0`
+CFLAGS = -DGST_USE_UNSTABLE_API \
+  `pkg-config --cflags gstreamer-1.0 gstreamer-webrtc-1.0 libsoup-3.0 json-glib-1.0 nice` \
+  -Isrc/headers
 
-SRC = src/main.c src/signaling.c src/pipeline.c src/webrtc.c src/data_channel.c src/utils.c
+LIBS = `pkg-config --libs gstreamer-1.0 gstreamer-webrtc-1.0 libsoup-3.0 json-glib-1.0 nice`
+
+SRC = \
+  src/main.c \
+  src/signaling.c \
+  src/pipeline.c \
+  src/webrtc.c \
+  src/data_channel.c \
+  src/utils.c \
+  src/custom_agent.c
+
 OBJ = $(SRC:.c=.o)
 HEADERS = $(wildcard src/headers/*.h)
 
