@@ -605,45 +605,10 @@ static void
 on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
     GBytes * message, gpointer user_data)
 {
-  gchar *text;
 
-  switch (type) {
-    case SOUP_WEBSOCKET_DATA_BINARY:
-      gst_printerr ("Received unknown binary message, ignoring\n");
-      return;
-    case SOUP_WEBSOCKET_DATA_TEXT:{
-      gsize size;
-      const gchar *data = g_bytes_get_data (message, &size);
-      text = g_strndup (data, size);
-      break;
-    }
-    default:
-      g_assert_not_reached ();
-  }
-
-  JsonNode *root;
-  JsonObject *object, *child;
-  JsonParser *parser = json_parser_new ();
-  if (!json_parser_load_from_data (parser, text, -1, NULL)) {
-    gst_printerr ("Unknown message '%s', ignoring\n", text);
-    g_object_unref (parser);
-    goto out;
-  }
-
-  root = json_parser_get_root (parser);
-  if (!JSON_NODE_HOLDS_OBJECT (root)) {
-    gst_printerr ("Unknown json message '%s', ignoring\n", text);
-    g_object_unref (parser);
-    goto out;
-  }
-
-  object = json_node_get_object (root);
-
-  /* Check type of JSON message */
-  if (!json_object_has_member (object, "type")) {
-    gst_printerr ("No 'type' field in message: '%s'\n", text);
-    g_object_unref (parser);
-    goto out;
+  JsonObject *object = get_json_object_from_string(type, message);
+  if (!object) {
+    return;
   }
 
   gint type_value = json_object_get_int_member (object, "type");
@@ -731,10 +696,6 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       break;
   }
 
-  g_object_unref (parser);
-
-out:
-  g_free (text);
 }
 
 static void
@@ -823,27 +784,8 @@ gst_main (int argc, char *argv[])
   if (!check_plugins ()) {
     goto out;
   }
-  // if (!sender_id && !our_id) {
-  //   gst_printerr ("--peer-id or --our-id is a required argument\n");
-  //   goto out;
-  // }
-
-  // if (sender_id && our_id) {
-  //   gst_printerr ("specify only --peer-id or --our-id\n");
-  //   goto out;
-  // }
 
   ret_code = 0;
-
-  /* Disable ssl when running a localhost server, because
-   * it's probably a test server with a self-signed certificate */
-  // {
-  //   GstUri *uri = gst_uri_from_string (server_url);
-  //   if (g_strcmp0 ("localhost", gst_uri_get_host (uri)) == 0 ||
-  //       g_strcmp0 ("127.0.0.1", gst_uri_get_host (uri)) == 0)
-  //     disable_ssl = TRUE;
-  //   gst_uri_unref (uri);
-  // }
 
   loop = g_main_loop_new (NULL, FALSE);
 

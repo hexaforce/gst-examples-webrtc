@@ -227,5 +227,50 @@ get_string_from_json_object (JsonObject * object)
 JsonObject *
 get_json_object_from_string (SoupWebsocketDataType type, GBytes * message)
 {
-  return NULL;
+  gchar *text = NULL;
+  JsonObject *object = NULL;
+
+  if (type == SOUP_WEBSOCKET_DATA_BINARY) {
+    gst_printerr ("Received unknown binary message, ignoring\n");
+    return NULL;
+  }
+
+  if (type == SOUP_WEBSOCKET_DATA_TEXT) {
+    gsize size;
+    const gchar *data = g_bytes_get_data (message, &size);
+    text = g_strndup (data, size);
+  } else {
+    g_assert_not_reached ();
+  }
+
+  JsonParser *parser = json_parser_new ();
+  if (!json_parser_load_from_data (parser, text, -1, NULL)) {
+    gst_printerr ("Unknown message '%s', ignoring\n", text);
+    g_object_unref (parser);
+    g_free (text);
+    return NULL;
+  }
+
+  JsonNode *root = json_parser_get_root (parser);
+  if (!JSON_NODE_HOLDS_OBJECT (root)) {
+    gst_printerr ("Unknown json message '%s', ignoring\n", text);
+    g_object_unref (parser);
+    g_free (text);
+    return NULL;
+  }
+
+  object = json_node_get_object (root);
+
+  /* Check type of JSON message */
+  if (!json_object_has_member (object, "type")) {
+    gst_printerr ("No 'type' field in message: '%s'\n", text);
+    g_object_unref (parser);
+    g_free (text);
+    return NULL;
+  }
+
+  g_object_unref (parser);
+  g_free (text);
+
+  return object;
 }
