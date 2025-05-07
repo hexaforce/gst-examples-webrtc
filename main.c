@@ -482,7 +482,6 @@ start_pipeline (gboolean create_offer, guint opus_pt, guint vp8_pt)
     g_error_free (video_error);
     goto err;
   }
-
   // if (custom_ice) {
   //   custom_agent = GST_WEBRTC_ICE (customice_agent_new ("custom"));
   //   webrtc1 = gst_element_factory_make_full ("webrtcbin", "name", "sendrecv",
@@ -605,10 +604,45 @@ static void
 on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
     GBytes * message, gpointer user_data)
 {
+  gchar *text;
 
-  JsonObject *object = get_json_object_from_string (type, message);
-  if (!object) {
-    return;
+  switch (type) {
+    case SOUP_WEBSOCKET_DATA_BINARY:
+      gst_printerr ("Received unknown binary message, ignoring\n");
+      return;
+    case SOUP_WEBSOCKET_DATA_TEXT:{
+      gsize size;
+      const gchar *data = g_bytes_get_data (message, &size);
+      text = g_strndup (data, size);
+      break;
+    }
+    default:
+      g_assert_not_reached ();
+  }
+
+  JsonNode *root;
+  JsonObject *object, *child;
+  JsonParser *parser = json_parser_new ();
+  if (!json_parser_load_from_data (parser, text, -1, NULL)) {
+    gst_printerr ("Unknown message '%s', ignoring\n", text);
+    g_object_unref (parser);
+    goto out;
+  }
+
+  root = json_parser_get_root (parser);
+  if (!JSON_NODE_HOLDS_OBJECT (root)) {
+    gst_printerr ("Unknown json message '%s', ignoring\n", text);
+    g_object_unref (parser);
+    goto out;
+  }
+
+  object = json_node_get_object (root);
+
+  /* Check type of JSON message */
+  if (!json_object_has_member (object, "type")) {
+    gst_printerr ("No 'type' field in message: '%s'\n", text);
+    g_object_unref (parser);
+    goto out;
   }
 
   gint type_value = json_object_get_int_member (object, "type");
@@ -695,7 +729,10 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       g_print ("Unhandled message type: %d\n", type_value);
       break;
   }
+  g_object_unref (parser);
 
+out:
+  g_free (text);
 }
 
 static void

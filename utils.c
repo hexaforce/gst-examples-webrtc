@@ -239,6 +239,8 @@ get_json_object_from_string (SoupWebsocketDataType type, GBytes * message)
     gsize size;
     const gchar *data = g_bytes_get_data (message, &size);
     text = g_strndup (data, size);
+    g_print ("[WebSocket TEXT Message] Size: %lu, Content: %.*s\n",
+        (unsigned long) size, (int) size, data);
   } else {
     g_assert_not_reached ();
   }
