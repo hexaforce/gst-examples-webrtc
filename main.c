@@ -83,7 +83,6 @@ cleanup_and_quit_loop (const gchar * msg, enum AppState state)
   if (ws_conn) {
     if (soup_websocket_connection_get_state (ws_conn) ==
         SOUP_WEBSOCKET_STATE_OPEN)
-      /* This will call us again */
       soup_websocket_connection_close (ws_conn, 1000, "");
     else
       g_clear_object (&ws_conn);
@@ -94,7 +93,6 @@ cleanup_and_quit_loop (const gchar * msg, enum AppState state)
     g_clear_pointer (&loop, g_main_loop_unref);
   }
 
-  /* To allow usage as a GSourceFunc */
   return G_SOURCE_REMOVE;
 }
 
@@ -102,8 +100,6 @@ static void
 send_ice_candidate_message (GstElement * webrtc G_GNUC_UNUSED, guint mlineindex,
     gchar * candidate, gpointer user_data G_GNUC_UNUSED)
 {
-  gst_print ("-------- send_ice_candidate_message\n");
-  // gchar *text;
   JsonObject *ice, *msg;
 
   if (app_state < PEER_CALL_NEGOTIATING) {
@@ -123,7 +119,6 @@ send_ice_candidate_message (GstElement * webrtc G_GNUC_UNUSED, guint mlineindex,
 static void
 send_sdp_to_peer (GstWebRTCSessionDescription * desc)
 {
-  gst_print ("-------- send_sdp_to_peer\n");
   gchar *sdp_text;
   JsonObject *msg, *sdp;
 
@@ -162,7 +157,6 @@ on_offer_created (GstPromise * promise, gpointer user_data)
   gst_promise_interrupt (promise);
   gst_promise_unref (promise);
 
-  /* Send offer to peer */
   send_sdp_to_peer (offer);
   gst_webrtc_session_description_free (offer);
 }
@@ -181,7 +175,6 @@ on_negotiation_needed (GstElement * element)
 static void
 data_channel_on_error (GObject * dc, gpointer user_data)
 {
-  gst_print ("-------- data_channel_on_error\n");
   cleanup_and_quit_loop ("Data channel error", 0);
 }
 
@@ -199,14 +192,12 @@ data_channel_on_open (GObject * dc, gpointer user_data)
 static void
 data_channel_on_close (GObject * dc, gpointer user_data)
 {
-  gst_print ("-------- data_channel_on_close\n");
   cleanup_and_quit_loop ("Data channel closed", 0);
 }
 
 static void
 data_channel_on_message_string (GObject * dc, gchar * str, gpointer user_data)
 {
-  gst_print ("-------- data_channel_on_message_string\n");
   gst_print ("Received data channel message: %s\n", str);
 }
 
@@ -409,7 +400,6 @@ start_pipeline (guint opus_pt, guint vp8_pt)
   g_assert_nonnull (webrtc1);
   gst_util_set_object_arg (G_OBJECT (webrtc1), "bundle-policy", "max-bundle");
 
-  /* Takes ownership of each: */
   gst_bin_add_many (GST_BIN (pipe1), audio_bin, video_bin, webrtc1, NULL);
 
   if (!gst_element_link (audio_bin, webrtc1)) {
@@ -440,13 +430,8 @@ start_pipeline (guint opus_pt, guint vp8_pt)
   g_clear_object (&audio_twcc);
   g_clear_object (&audiopay);
 
-  /* This is the gstwebrtc entry point where we create the offer and so on. It
-   * will be called when the pipeline goes to PLAYING. */
   g_signal_connect (webrtc1, "on-negotiation-needed",
       G_CALLBACK (on_negotiation_needed), NULL);
-  /* We need to transmit this ICE candidate to the browser via the websockets
-   * signalling server. Incoming ice candidates from the browser need to be
-   * added by us too, see on_server_message() */
   g_signal_connect (webrtc1, "on-ice-candidate",
       G_CALLBACK (send_ice_candidate_message), NULL);
   g_signal_connect (webrtc1, "notify::ice-gathering-state",
@@ -509,7 +494,6 @@ on_server_closed (SoupWebsocketConnection * conn G_GNUC_UNUSED,
 }
 
 
- /* One mega message handler for our asynchronous calling mechanism */
 static void
 on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
     GBytes * message, gpointer user_data)
@@ -551,7 +535,6 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
 
   object = json_node_get_object (root);
 
-  /* Check type of JSON message */
   if (!json_object_has_member (object, "type")) {
     gst_printerr ("No 'type' field in message: '%s'\n", text);
     g_object_unref (parser);
@@ -674,13 +657,9 @@ on_server_connected (SoupSession * session, GAsyncResult * res,
   g_signal_connect (ws_conn, "closed", G_CALLBACK (on_server_closed), NULL);
   g_signal_connect (ws_conn, "message", G_CALLBACK (on_server_message), NULL);
 
-  /* Register with the server so it knows about us and can accept commands */
   register_with_server ();
 }
 
- /*
-  * Connect to the signalling server. This is the entrypoint for everything else.
-  */
 static void
 connect_to_websocket_server_async (void)
 {
@@ -689,12 +668,7 @@ connect_to_websocket_server_async (void)
   SoupMessage *message;
   SoupSession *session;
 
-  session = soup_session_new_with_options (
-      // "ssl-strict", !disable_ssl,
-      // "ssl-use-system-ca-file", TRUE,
-      // //"ssl-ca-file", "/etc/ssl/certs/ca-bundle.crt",
-      // "http-aliases", https_aliases, 
-      NULL);
+  session = soup_session_new_with_options (NULL);
 
 #if SOUP_CHECK_VERSION(3,0,0)
   logger = soup_logger_new (SOUP_LOGGER_LOG_BODY);
