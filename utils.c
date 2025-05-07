@@ -223,3 +223,9 @@ get_string_from_json_object (JsonObject * object)
   json_node_free (root);
   return text;
 }
+
+JsonObject *
+get_json_object_from_string (SoupWebsocketDataType type, GBytes * message)
+{
+  return NULL;
+}
