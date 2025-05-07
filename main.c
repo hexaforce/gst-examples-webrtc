@@ -614,6 +614,8 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
       gsize size;
       const gchar *data = g_bytes_get_data (message, &size);
       text = g_strndup (data, size);
+      g_print ("[WebSocket TEXT Message] Size: %lu, Content: %.*s\n",
+        (unsigned long) size, (int) size, data);
       break;
     }
     default:
@@ -681,21 +683,7 @@ on_server_message (SoupWebsocketConnection * conn, SoupWebsocketDataType type,
         cleanup_and_quit_loop ("ERROR: failed to start pipeline",
             PEER_CALL_ERROR);
       }
-      // JsonObject *constraints =
-      //     json_object_get_object_member (object, "constraints");
 
-      // JsonNode *node = json_node_new (JSON_NODE_OBJECT);
-      // json_node_set_object (node, constraints);
-
-      // JsonGenerator *gen = json_generator_new ();
-      // json_generator_set_root (gen, node);
-      // gchar *json_str = json_generator_to_data (gen, NULL);
-
-      // g_print ("MEDIA_STREAM_START with constraints: %s\n", json_str);
-
-      // g_free (json_str);
-      // g_object_unref (gen);
-      // json_node_free (node);
       break;
     }
     case SENDER_SDP_ANSWER:{

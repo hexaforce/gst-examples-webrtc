@@ -31,7 +31,4 @@ JsonObject *get_supported_codecs (void);
 
 gchar *get_string_from_json_object (JsonObject * object);
 
-JsonObject *get_json_object_from_string (SoupWebsocketDataType type,
-    GBytes * message);
-
 #endif // UTILS_H
