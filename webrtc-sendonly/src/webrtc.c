@@ -22,9 +22,11 @@ send_sdp_offer (GstWebRTCSessionDescription * desc)
   JsonObject *offer = json_object_new ();
   json_object_set_string_member (offer, "type", "offer");
   json_object_set_string_member (offer, "sdp", sdp);
-  ws_send (ws_conn, RECEIVER_SDP_OFFER, ws1Id, ws2Id, offer);
+  JsonObject *msg = json_object_new ();
+  json_object_set_object_member (msg, "offer", offer);
+  ws_send (ws_conn, RECEIVER_SDP_OFFER, ws1Id, ws2Id, msg);
   g_free (sdp);
-  json_object_unref (offer);
+  json_object_unref (msg);
 }
 
 void
