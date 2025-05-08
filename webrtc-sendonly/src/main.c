@@ -11,7 +11,7 @@ AppState app_state = APP_STATE_UNKNOWN;
 
 gchar *ws1Id = NULL, *ws2Id = NULL;
 
-const gchar *server_url = "ws://localhost:8443/signaling";
+const gchar *server_url = "wss://demo2.hexaforce.dev/signaling";
 
 GObject *send_channel = NULL;
 

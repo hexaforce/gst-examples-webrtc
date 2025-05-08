@@ -66,7 +66,7 @@ static GObject *send_channel, *receive_channel;
 
 static SoupWebsocketConnection *ws_conn = NULL;
 static enum AppState app_state = 0;
-static const gchar *server_url = "ws://192.168.151.5:8443/signaling";
+static const gchar *server_url = "wss://demo2.hexaforce.dev/signaling";
 
 static gchar *ws1Id = NULL;
 static gchar *ws2Id = NULL;
